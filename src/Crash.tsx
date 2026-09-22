@@ -41,6 +41,7 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
     startTime: number;
     cashedOut: boolean;
     active: boolean;
+    autoCashout: number | null;
   } | null>(null);
   const animFrame = useRef<number | null>(null);
 
@@ -375,6 +376,7 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
       setPhase('flying');
 
       const startTime = performance.now();
+      const targetAuto = autoCashoutEnabled && autoCashoutMult >= 1.05 ? autoCashoutMult : null;
       gameRef.current = {
         id,
         bet,
@@ -382,6 +384,7 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
         startTime,
         cashedOut: false,
         active: true,
+        autoCashout: targetAuto,
       };
 
       let simulatedSec = 0;
@@ -414,16 +417,25 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
 
         setMult(currentM);
 
-        if (autoCashoutEnabled && !current.cashedOut && currentM >= autoCashoutMult && currentM < current.crashPoint) {
-          void doCashout(autoCashoutMult);
+        // 1. Auto cashout check
+        if (current.autoCashout && !current.cashedOut && current.crashPoint >= current.autoCashout) {
+          if (currentM >= current.autoCashout) {
+            void doCashout(current.autoCashout);
+          }
         }
 
+        // 2. Crash check
         if (currentM >= current.crashPoint) {
+          // Safety: If auto cashout was configured below crashPoint, guarantee cashout occurred
+          if (current.autoCashout && !current.cashedOut && current.crashPoint >= current.autoCashout) {
+            void doCashout(current.autoCashout);
+          }
           if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
           void triggerCrash(current.crashPoint);
+          return;
         }
       }, 30);
     } catch (e) {
@@ -435,10 +447,10 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
 
   const doCashout = async (targetMult?: number) => {
     const current = gameRef.current;
-    if (!current || !current.active || current.cashedOut || phase !== 'flying') return;
+    if (!current || !current.active || current.cashedOut) return;
     current.cashedOut = true;
 
-    const payoutMult = targetMult ?? mult;
+    const payoutMult = targetMult ? Math.round(targetMult * 100) / 100 : mult;
     setCashedOutAt(payoutMult);
 
     try {
@@ -638,19 +650,40 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
               </button>
             </div>
             {autoCashoutEnabled && (
-              <div className="auto-input-row">
-                <span>목표 배율</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="1.1"
-                  max="100"
-                  disabled={phase === 'flying'}
-                  value={autoCashoutMult}
-                  onChange={e => setAutoCashoutMult(Math.max(1.1, Number(e.target.value)))}
-                />
-                <span>×</span>
-              </div>
+              <>
+                <div className="auto-input-row">
+                  <span>목표 배율</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1.1"
+                    max="100"
+                    disabled={phase === 'flying'}
+                    value={autoCashoutMult}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) setAutoCashoutMult(v);
+                    }}
+                    onBlur={() => {
+                      setAutoCashoutMult(prev => Math.max(1.1, Math.min(100, Math.round(prev * 10) / 10)));
+                    }}
+                  />
+                  <span>×</span>
+                </div>
+                <div className="quick-auto-pills">
+                  {[1.5, 2.0, 3.0, 5.0, 10.0].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={`auto-pill ${autoCashoutMult === val ? 'active' : ''}`}
+                      disabled={phase === 'flying'}
+                      onClick={() => setAutoCashoutMult(val)}
+                    >
+                      {val}×
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
