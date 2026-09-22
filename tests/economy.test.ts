@@ -194,4 +194,46 @@ test('lucky box unboxing, prize distribution, duplicate fallback, and title equi
  assert.deepEqual(validated, p);
 });
 
+test('daily wheel, attendance, daily/weekly quests, achievements, and bankruptcy coin tap', () => {
+  let p = initialProfile();
+  const now = 1700000000000;
 
+  // 1. Attendance (+500 coins)
+  p = reduceProfile(p, { type: 'attendance' }, now);
+  assert.equal(p.balance, 10500);
+  assert.throws(() => reduceProfile(p, { type: 'attendance' }, now + 1000)); // already checked in today
+
+  // 2. Daily Wheel (e.g. slot 0 = 500 coins)
+  p = reduceProfile(p, { type: 'wheel_spin', slotIndex: 0 }, now);
+  assert.equal(p.balance, 11000);
+  assert.throws(() => reduceProfile(p, { type: 'wheel_spin', slotIndex: 0 }, now + 1000)); // cooldown 24h
+
+  // 3. Play rounds to advance daily & weekly stats
+  p = reduceProfile(p, { type: 'drop', id: 'q1', bet: 100 }, now);
+  p = reduceProfile(p, { type: 'settle', id: 'q1', slot: 2 }, now); // multiplier 2x
+  assert.equal(p.dailyRounds, 1);
+  assert.equal(p.dailyMaxMult, 2.0);
+
+  // 4. Claim daily quest (dq_win2x: reward 800)
+  p = reduceProfile(p, { type: 'daily_claim', questId: 'dq_win2x' }, now);
+  assert.ok(p.dailyClaimed.includes('dq_win2x'));
+  assert.throws(() => reduceProfile(p, { type: 'daily_claim', questId: 'dq_win2x' }, now));
+
+  // 5. Claim achievement (ach_first_step: reward 500, ach_mult_2x: reward 500)
+  p = reduceProfile(p, { type: 'achievement_claim', achievementId: 'ach_first_step' }, now);
+  p = reduceProfile(p, { type: 'achievement_claim', achievementId: 'ach_mult_2x' }, now);
+  assert.ok(p.achievementsClaimed.includes('ach_first_step'));
+  assert.ok(p.achievementsClaimed.includes('ach_mult_2x'));
+
+  // 6. Bankruptcy Coin Tap (only when balance < 100)
+  p.balance = 40;
+  p = reduceProfile(p, { type: 'coin_tap' }, now);
+  assert.equal(p.balance, 90);
+  p = reduceProfile(p, { type: 'coin_tap' }, now);
+  assert.equal(p.balance, 140);
+  assert.throws(() => reduceProfile(p, { type: 'coin_tap' }, now)); // balance >= 100 rejected
+
+  // 7. Validate profile preservation
+  const validated = validateProfile(p, true);
+  assert.deepEqual(validated, p);
+});

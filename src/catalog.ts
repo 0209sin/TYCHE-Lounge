@@ -232,3 +232,69 @@ export const BOXES: LuckyBox[] = [
   ],
  },
 ];
+
+// --- 🎁 Daily Wheel Slots (행운의 룰렛 8개 슬롯) ---
+export type WheelSlot = {
+  id: string;
+  label: string;
+  amount: number; // 코인 지급액
+  color: string;
+  textColor: string;
+};
+
+export const WHEEL_SLOTS: WheelSlot[] = [
+  { id: 'w_500', label: '500 코인', amount: 500, color: '#0e7490', textColor: '#ffffff' },
+  { id: 'w_300', label: '300 코인', amount: 300, color: '#1e293b', textColor: '#cbd5e1' },
+  { id: 'w_1000', label: '1,000 코인', amount: 1000, color: '#4338ca', textColor: '#ffffff' },
+  { id: 'w_800', label: '800 코인', amount: 800, color: '#1e293b', textColor: '#cbd5e1' },
+  { id: 'w_2000', label: '2,000 코인', amount: 2000, color: '#7e22ce', textColor: '#ffffff' },
+  { id: 'w_box', label: '실버 상자 (5,000코인 상당)', amount: 5000, color: '#be185d', textColor: '#ffffff' },
+  { id: 'w_5000', label: '5,000 코인', amount: 5000, color: '#b45309', textColor: '#ffffff' },
+  { id: 'w_jackpot', label: '★ 10,000 잭팟! ★', amount: 10000, color: '#e11d48', textColor: '#ffffff' },
+];
+
+// --- 📜 Quests (일일 / 주간 퀘스트) ---
+export type Quest = {
+  id: string;
+  name: string;
+  description: string;
+  reward: number; // 코인 보상
+  target: number;
+  type: 'rounds' | 'win_mult';
+};
+
+export const DAILY_QUESTS: Quest[] = [
+  { id: 'dq_rounds5', name: '가벼운 손풀기', description: '오늘 아무 게임 5회 플레이', reward: 500, target: 5, type: 'rounds' },
+  { id: 'dq_rounds15', name: '아케이드의 열기', description: '오늘 아무 게임 15회 플레이', reward: 1000, target: 15, type: 'rounds' },
+  { id: 'dq_win2x', name: '달콤한 승리', description: '오늘 배율 2배 이상 승리 1회 달성', reward: 800, target: 1, type: 'win_mult' },
+];
+
+export const WEEKLY_QUESTS: Quest[] = [
+  { id: 'wq_rounds50', name: '주간 단골손님', description: '이번 주 누적 50회 플레이', reward: 3000, target: 50, type: 'rounds' },
+  { id: 'wq_rounds100', name: '아케이드 베테랑', description: '이번 주 누적 100회 플레이', reward: 6000, target: 100, type: 'rounds' },
+  { id: 'wq_win5x', name: '주간 빅 윈 (Big Win)', description: '이번 주 배율 5배 이상 적중 1회', reward: 5000, target: 1, type: 'win_mult' },
+];
+
+// --- 🏆 Achievements (영구 도전 과제 & 업적 - 보상: 풍성한 코인!) ---
+export type Achievement = {
+  id: string;
+  name: string;
+  description: string;
+  reward: number; // 코인 보상!
+  category: 'gameplay' | 'jackpot' | 'collection';
+};
+
+export const ACHIEVEMENTS: Achievement[] = [
+  { id: 'ach_first_step', name: '첫 발자국', description: '아케이드 게임 누적 1회 플레이 달성', reward: 500, category: 'gameplay' },
+  { id: 'ach_rounds_50', name: '열정적인 갬블러', description: '누적 50회 플레이 달성', reward: 1500, category: 'gameplay' },
+  { id: 'ach_rounds_200', name: '티케 라운지의 VIP', description: '누적 200회 플레이 달성', reward: 5000, category: 'gameplay' },
+  { id: 'ach_rounds_500', name: '아케이드의 전설', description: '누적 500회 플레이 달성', reward: 15000, category: 'gameplay' },
+  { id: 'ach_mult_2x', name: '짜릿한 승리', description: '단일 게임 2배 이상 배율 달성', reward: 500, category: 'jackpot' },
+  { id: 'ach_mult_5x', name: '빅 윈 (Big Win)', description: '단일 게임 5배 이상 배율 적중', reward: 2000, category: 'jackpot' },
+  { id: 'ach_mult_10x', name: '메가 잭팟 (Mega Jackpot)', description: '단일 게임 10배 이상 배율 적중', reward: 5000, category: 'jackpot' },
+  { id: 'ach_mult_20x', name: '기적의 순간', description: '단일 게임 20배 이상 최고 배율 적중', reward: 15000, category: 'jackpot' },
+  { id: 'ach_owned_7', name: '스킨 매니아', description: '보유 스킨 7개 이상 수집', reward: 3000, category: 'collection' },
+  { id: 'ach_owned_12', name: '패셔니스타', description: '보유 스킨 12개 이상 수집', reward: 8000, category: 'collection' },
+  { id: 'ach_titles_3', name: '이름 높은 자', description: '칭호 3개 이상 보유', reward: 2500, category: 'collection' },
+  { id: 'ach_titles_7', name: '전설의 칭호 수집가', description: '칭호 7개 이상 보유', reward: 10000, category: 'collection' },
+];
