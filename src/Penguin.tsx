@@ -35,6 +35,14 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   const animFrame = useRef<number | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (audioCtx.current && audioCtx.current.state !== 'closed') {
+        void audioCtx.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
   // Jump animation state
   const jumpState = useRef<{
     active: boolean;

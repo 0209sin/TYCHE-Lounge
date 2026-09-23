@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initialProfile,reduceProfile,validateProfile} from '../src/economy.ts';
+import {getDayKey, getWeekKey, initialProfile, reduceProfile, syncDailyAndWeekly, validateProfile} from '../src/economy.ts';
+import {computeProfileChecksum, decryptSaveData, encryptSaveData} from '../src/security.ts';
 test('a purchase and settlement preserve accounting; repeated settlement is idempotent',()=>{
  const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:100});assert.equal(p.balance,9900);
  const q=reduceProfile(p,{type:'settle',id:'a',slot:2});assert.equal(q.balance,10100);assert.equal(q.wagered,100);assert.equal(q.earned,200);assert.equal(q.rounds,1);
@@ -12,7 +13,7 @@ test('fractional multiplier pays whole coins and refund cannot be duplicated',()
  const r=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:500});const s=reduceProfile(r,{type:'recover'});assert.equal(s.balance,10000);assert.equal(reduceProfile(s,{type:'recover'}).balance,10000);assert.equal(reduceProfile(s,{type:'refund',id:'a'}).balance,10000);
 });
 test('old saves and backups retain 0.7x and 1x history after the balance update',()=>{
- const p=initialProfile();p.balance=9570;p.owned.push('ball-lime');p.equipped.ball='ball-lime';
+ const p=initialProfile();delete p.checksum;p.balance=9570;p.owned.push('ball-lime');p.equipped.ball='ball-lime';
  p.results=[{id:'legacy-07',bet:100,multiplier:.7,payout:70,time:1},{id:'legacy-1',bet:100,multiplier:1,payout:100,time:2},{id:'legacy-01',bet:100,multiplier:.1,payout:10,time:3}];
  const restored=validateProfile(p,true);assert.equal(restored.balance,9570);assert.equal(restored.equipped.ball,'ball-lime');assert.deepEqual(restored.results,p.results);
 });
@@ -237,3 +238,207 @@ test('daily wheel, attendance, daily/weekly quests, achievements, and bankruptcy
   const validated = validateProfile(p, true);
   assert.deepEqual(validated, p);
 });
+
+test('mines game start, cashout, bust, and state validation', () => {
+  let p = initialProfile();
+  const now = 1700000100000;
+
+  // Start with 5 mines, 500 bet
+  p = reduceProfile(p, { type: 'mines_start', id: 'm1', bet: 500, mineCount: 5 }, now);
+  assert.equal(p.balance, 9500);
+  assert.equal(p.pending.length, 1);
+  assert.equal(p.pending[0].target, 5); // mineCount stored in target
+
+  // Cashout at 2.5x
+  p = reduceProfile(p, { type: 'mines_cashout', id: 'm1', multiplier: 2.5 }, now);
+  assert.equal(p.balance, 9500 + Math.floor(500 * 2.5)); // 10750
+  assert.equal(p.rounds, 1);
+  assert.equal(p.wagered, 500);
+  assert.equal(p.earned, 1250);
+  assert.equal(p.best, 2.5);
+  assert.equal(p.results[0].multiplier, 2.5);
+  assert.equal(p.results[0].payout, 1250);
+
+  // Bust
+  p = reduceProfile(p, { type: 'mines_start', id: 'm2', bet: 1000, mineCount: 10 }, now);
+  assert.equal(p.balance, 9750);
+  p = reduceProfile(p, { type: 'mines_bust', id: 'm2' }, now);
+  assert.equal(p.balance, 9750);
+  assert.equal(p.rounds, 2);
+  assert.equal(p.wagered, 1500);
+  assert.equal(p.results[0].multiplier, 0);
+  assert.equal(p.results[0].payout, 0);
+
+  // Validate profile
+  const validated = validateProfile(p, true);
+  assert.deepEqual(validated, p);
+});
+
+test('progressive achievements and claim_all batch collection', () => {
+  let p = initialProfile();
+  const now = 1700000200000;
+
+  // Wager and win substantial amounts to qualify for progressive achievements
+  p.wagered = 12000; // qualifies for ach_wager_1k, ach_wager_5k, ach_wager_10k
+  p.earned = 55000;  // qualifies for ach_earn_1k, ach_earn_5k, ach_earn_10k, ach_earn_50k
+  p.rounds = 55;     // qualifies for ach_first_step, ach_rounds_10, ach_rounds_25, ach_rounds_50
+  p.dailyDate = getDayKey(now);
+  p.dailyRounds = 5; // qualifies for dq_rounds5
+  p.dailyMaxMult = 2.5; // qualifies for dq_win2x
+  p.weeklyKey = getWeekKey(now);
+  p.weeklyRounds = 50; // qualifies for wq_rounds50
+  p.weeklyMaxMult = 5.5; // qualifies for wq_win5x
+
+  const initialBalance = p.balance; // 10000
+
+  // Call claim_all
+  p = reduceProfile(p, { type: 'claim_all' }, now);
+
+  // Balance should have increased by all eligible rewards
+  assert.ok(p.balance > initialBalance);
+
+  // Achievements should now be claimed
+  assert.ok(p.achievementsClaimed.includes('ach_wager_1k'));
+  assert.ok(p.achievementsClaimed.includes('ach_wager_5k'));
+  assert.ok(p.achievementsClaimed.includes('ach_wager_10k'));
+  assert.ok(p.achievementsClaimed.includes('ach_earn_50k'));
+  assert.ok(p.achievementsClaimed.includes('ach_rounds_50'));
+
+  // Daily & weekly quests should now be claimed
+  assert.ok(p.dailyClaimed.includes('dq_rounds5'));
+  assert.ok(p.dailyClaimed.includes('dq_win2x'));
+  assert.ok(p.weeklyClaimed.includes('wq_rounds50'));
+  assert.ok(p.weeklyClaimed.includes('wq_win5x'));
+
+  // Repeated claim_all should throw error since all eligible are claimed
+  assert.throws(() => reduceProfile(p, { type: 'claim_all' }, now), /수령 가능한 보상이 없습니다/);
+
+  // Profile validation should pass cleanly
+  const validated = validateProfile(p, true);
+  assert.deepEqual(validated, p);
+});
+
+test('high jackpot multiplier (> 1000x) and floor-based payout validate successfully', () => {
+  const p = initialProfile();
+  delete p.checksum;
+  p.best = 2231.84;
+  p.results = [
+    {
+      id: 'mines_jackpot',
+      bet: 100,
+      multiplier: 2231.84,
+      payout: Math.floor(100 * 2231.84),
+      time: 1700000000000,
+    },
+  ];
+  const validated = validateProfile(p, true);
+  assert.equal(validated.best, 2231.84);
+  assert.equal(validated.results[0].payout, 223184);
+});
+
+test('daily and weekly quest stats automatically reset on rollover in syncDailyAndWeekly', () => {
+  const p = initialProfile();
+  p.dailyDate = '2020-01-01'; // past date
+  p.dailyRounds = 10;
+  p.dailyMaxMult = 5;
+  p.dailyClaimed = ['dq_rounds5'];
+
+  p.weeklyKey = '2020-W01'; // past week
+  p.weeklyRounds = 50;
+  p.weeklyMaxMult = 10;
+  p.weeklyClaimed = ['wq_rounds50'];
+
+  syncDailyAndWeekly(p, Date.now());
+  assert.equal(p.dailyRounds, 0);
+  assert.equal(p.dailyMaxMult, 0);
+  assert.deepEqual(p.dailyClaimed, []);
+
+  assert.equal(p.weeklyRounds, 0);
+  assert.equal(p.weeklyMaxMult, 0);
+  assert.deepEqual(p.weeklyClaimed, []);
+});
+
+test('tampered local storage profile is caught and rejected by checksum verification', () => {
+  const p = initialProfile();
+  assert.ok(p.checksum);
+
+  // User opens DevTools IndexedDB and changes balance from 10000 to 9999999
+  const tampered = { ...p, balance: 9999999 };
+  assert.throws(
+    () => validateProfile(tampered),
+    /로컬 저장소의 데이터가 변조되었습니다/
+  );
+});
+
+test('AES-GCM save export encrypts data and rejects tampered save file on import', async () => {
+  const p = initialProfile();
+  p.balance = 25000;
+  p.rounds = 15;
+  p.checksum = computeProfileChecksum(p);
+
+  // Export encrypted save
+  const encryptedJson = await encryptSaveData(p);
+  assert.ok(!encryptedJson.includes('25000')); // Balance is NOT exposed in plain text!
+  assert.ok(encryptedJson.includes('aes-gcm'));
+
+  // Normal decrypt succeeds
+  const restored = await decryptSaveData(encryptedJson, validateProfile);
+  assert.equal(restored.balance, 25000);
+  assert.equal(restored.rounds, 15);
+
+  // Tamper test 1: Modify ciphertext data
+  const parsed = JSON.parse(encryptedJson);
+  const tamperedData = {
+    ...parsed,
+    data: parsed.data.slice(0, -4) + 'abcd',
+  };
+  await assert.rejects(
+    () => decryptSaveData(JSON.stringify(tamperedData), validateProfile),
+    /변조되었거나 손상된 세이브 파일입니다/
+  );
+
+  // Tamper test 2: Tamper signature
+  const tamperedSig = {
+    ...parsed,
+    sig: '0000000000000000000000000000000000000000000000000000000000000000',
+  };
+  await assert.rejects(
+    () => decryptSaveData(JSON.stringify(tamperedSig), validateProfile),
+    /변조되었거나 손상된 세이브 파일입니다/
+  );
+});
+
+test('legacy unencrypted v1 backup imports seamlessly', async () => {
+  const legacy = {
+    app: 'tyche-lounge',
+    exportedAt: '2023-01-01T00:00:00.000Z',
+    profile: {
+      ...initialProfile(),
+      balance: 15000,
+    },
+  };
+  delete (legacy.profile as Partial<typeof legacy.profile>).checksum;
+
+  const restored = await decryptSaveData(JSON.stringify(legacy), validateProfile);
+  assert.equal(restored.balance, 15000);
+  assert.ok(restored.checksum); // Automatically upgraded with fresh checksum
+});
+
+test('bgm action toggles background music preference and persists across validation', () => {
+  let p = initialProfile();
+  assert.equal(p.bgm, false);
+
+  // Toggle BGM on
+  p = reduceProfile(p, { type: 'bgm' });
+  assert.equal(p.bgm, true);
+
+  // Validate profile preserves bgm setting
+  const validated = validateProfile(p);
+  assert.equal(validated.bgm, true);
+
+  // Toggle BGM off
+  p = reduceProfile(p, { type: 'bgm' });
+  assert.equal(p.bgm, false);
+  assert.equal(validateProfile(p).bgm, false);
+});
+

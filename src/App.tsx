@@ -30,10 +30,13 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  Music,
+  Music2,
   X,
   Flame,
   Medal,
   CheckCircle2,
+  Bomb,
 } from 'lucide-react';
 import {
   BETS,
@@ -51,16 +54,19 @@ import {
   type BoxPrize,
   type WheelSlot,
 } from './catalog';
-import { initialProfile, validateProfile, getDayKey, type Action, type Profile } from './economy';
+import { initialProfile, validateProfile, getDayKey, isAchievementDone, type Action, type Profile } from './economy';
+import { encryptSaveData, decryptSaveData } from './security';
+import { bgmManager } from './bgm';
 import { changeProfile, readProfile } from './storage';
 import Plinko, { type PlinkoHandle } from './Plinko';
 import Crash from './Crash';
 import Race from './Race';
 import Penguin from './Penguin';
+import Mines from './Mines';
 import DailyWheel from './DailyWheel';
 import { TermsModal, PrivacyModal, AboutModal, type LegalModalType } from './LegalModals';
 
-type Page = 'play' | 'crash' | 'race' | 'penguin' | 'games' | 'shop' | 'inventory' | 'missions' | 'settings';
+type Page = 'play' | 'crash' | 'race' | 'penguin' | 'mines' | 'games' | 'shop' | 'inventory' | 'missions' | 'settings';
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 const signed = (n: number) => `${n > 0 ? '+' : ''}${fmt(n)}`;
 
@@ -234,7 +240,7 @@ export default function App() {
               setWriter(true);
               setP(saved);
               bc?.postMessage('saved');
-              if (old.pending.length) notify('이전 게임에서 미정산된 공의 금액을 돌려드렸어요.');
+              if (old.pending.length) notify('이전 게임에서 미정산된 베팅 코인을 안전하게 돌려드렸어요.');
               await hold;
             } catch (e) {
               if (!disposed) setFatal(String(e instanceof Error ? e.message : e));
@@ -256,6 +262,15 @@ export default function App() {
       bc?.close();
     };
   }, [notify]);
+
+  useEffect(() => {
+    if (loaded) {
+      bgmManager.setEnabled(p.bgm);
+    }
+    return () => {
+      bgmManager.pause();
+    };
+  }, [loaded, p.bgm]);
 
   const act = useCallback(async (action: Action | { type: 'import'; profile: Profile }) => {
     if (!activeWriter.current) throw new Error('게임을 실행 중인 다른 탭을 먼저 닫아 주세요.');
@@ -381,33 +396,32 @@ export default function App() {
     if (next === 'shop' || next === 'inventory') setFilter('all');
   };
 
-  const exportSave = () => {
+  const exportSave = async () => {
     if (p.pending.length) {
       notify('진행 중인 게임이 끝난 뒤 백업해 주세요.');
       return;
     }
-    const blob = new Blob(
-      [JSON.stringify({ app: 'tyche-lounge', exportedAt: new Date().toISOString(), profile: p }, null, 2)],
-      { type: 'application/json' }
-    );
-    const url = URL.createObjectURL(blob),
-      a = document.createElement('a');
-    a.href = url;
-    a.download = `tyche-save-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify('백업 파일을 다운로드했어요.');
+    try {
+      const encryptedJson = await encryptSaveData(p);
+      const blob = new Blob([encryptedJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+      a.href = url;
+      a.download = `tyche-save-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify('보안 암호화된 백업 파일을 안전하게 다운로드했어요.');
+    } catch {
+      notify('백업 파일 암호화 생성 중 오류가 발생했습니다.');
+    }
   };
 
   const importFile = async (file?: File) => {
     if (!file) return;
     try {
-      if (file.size > 100000) throw new Error('백업 파일이 너무 큽니다.');
-      const raw = JSON.parse(await file.text());
-      if (raw.app !== 'orbit-arcade' && raw.app !== 'tyche-lounge') {
-        throw new Error('티케 라운지 백업 파일을 선택해 주세요.');
-      }
-      const saved = validateProfile(raw.profile, true);
+      if (file.size > 200000) throw new Error('백업 파일이 너무 큽니다.');
+      const fileText = await file.text();
+      const saved = await decryptSaveData(fileText, validateProfile);
       setImported(saved);
       setModal('import');
     } catch (e) {
@@ -421,15 +435,21 @@ export default function App() {
   const checkedInToday = !!p.lastAttendance && getDayKey(p.lastAttendance) === today;
   const wheelReady = !p.lastWheelSpin || Date.now() - p.lastWheelSpin >= 24 * 60 * 60 * 1000;
 
+  const totalClaimableCount =
+    DAILY_QUESTS.filter(q => (q.type === 'rounds' ? p.dailyRounds : p.dailyMaxMult) >= q.target && !p.dailyClaimed.includes(q.id)).length +
+    WEEKLY_QUESTS.filter(q => (q.type === 'rounds' ? p.weeklyRounds : p.weeklyMaxMult) >= q.target && !p.weeklyClaimed.includes(q.id)).length +
+    ACHIEVEMENTS.filter(a => isAchievementDone(a, p) && !p.achievementsClaimed.includes(a.id)).length;
+
   const nav = [
     { page: 'play' as Page, label: '플링코', icon: Target, tag: '01' },
     { page: 'crash' as Page, label: '로켓 크래시', icon: Rocket, tag: '02' },
     { page: 'race' as Page, label: '네온 경마', icon: Trophy, tag: '03' },
     { page: 'penguin' as Page, label: '펭귄 점프', icon: Footprints, tag: '04' },
+    { page: 'mines' as Page, label: '다이아 찾기', icon: Bomb, tag: '05' },
     { page: 'games' as Page, label: '게임 라운지', icon: Grid2X2 },
     { page: 'shop' as Page, label: '상점', icon: ShoppingBag },
     { page: 'inventory' as Page, label: '보관함', icon: Package },
-    { page: 'missions' as Page, label: '퀘스트 & 룰렛', icon: Gift, hasNotice: wheelReady || !checkedInToday },
+    { page: 'missions' as Page, label: '퀘스트 & 룰렛', icon: Gift, hasNotice: wheelReady || !checkedInToday || totalClaimableCount > 0 },
   ];
 
   const available = loaded && writer && !fatal;
@@ -442,6 +462,7 @@ export default function App() {
     crash: ['로켓 크래시', '폭발하기 직전, 배율을 낚아채세요.'],
     race: ['네온 경마', '4마리의 질주, 1등마를 맞히면 3배 지급!'],
     penguin: ['네온 펭귄 점프', '7개의 얼음길, 언제 멈출지는 당신의 선택.'],
+    mines: ['다이아 찾기', '폭탄을 피해 다이아를 찾고, 원하는 순간 코인을 탈출하세요.'],
     games: ['게임 라운지', '오늘은 어떤 게임을 즐겨볼까요?'],
     shop: ['상점 및 럭키 박스', '모은 코인으로 스킨을 구매하거나 대박 상자를 열어보세요.'],
     inventory: ['내 보관함', '보유 중인 스킨과 칭호를 장착해 보세요.'],
@@ -509,6 +530,16 @@ export default function App() {
                 <span>행운 룰렛 ON</span>
               </button>
             )}
+            <button
+              className={`topbar-bgm-pill ${p.bgm ? 'active' : ''}`}
+              disabled={!available}
+              onClick={() => void run({ type: 'bgm' }, p.bgm ? '배경음악을 껐습니다.' : '배경음악을 켰습니다.')}
+              title={p.bgm ? '배경음악 끄기 (Mute BGM)' : '배경음악 켜기 (Play BGM)'}
+              aria-label={p.bgm ? '배경음악 끄기' : '배경음악 켜기'}
+            >
+              {p.bgm ? <Music size={13} className="music-pulse" /> : <Music2 size={13} />}
+              <span>{p.bgm ? 'BGM ON' : 'BGM OFF'}</span>
+            </button>
             <span className="topbar-version-badge">v2.2</span>
             <span className={`save-indicator ${saveError ? 'error' : ''}`}>
               <ShieldCheck size={14} />
@@ -603,6 +634,8 @@ export default function App() {
                   ? 'QUAD GLORY HORSE RACE'
                   : page === 'penguin'
                   ? 'ICE FLOE STEP HOP'
+                  : page === 'mines'
+                  ? 'PROBABILITY GRID MINES'
                   : 'TYCHE GAMING LOUNGE'}
               </span>
               <h1>
@@ -611,6 +644,7 @@ export default function App() {
                 {page === 'crash' && <span className="title-chip">CRASH</span>}
                 {page === 'race' && <span className="title-chip">HORSE RACE</span>}
                 {page === 'penguin' && <span className="title-chip">PENGUIN JUMP</span>}
+                {page === 'mines' && <span className="title-chip">NEON MINES</span>}
               </h1>
               <p>{titles[page][1]}</p>
             </div>
@@ -849,6 +883,25 @@ export default function App() {
               onFall={async id => {
                 await act({ type: 'penguin_fall', id });
                 notify('얼음이 깨져 바다로 빠졌습니다!');
+              }}
+              onError={msg => notify(msg)}
+            />
+          )}
+
+          {page === 'mines' && (
+            <Mines
+              profile={p}
+              available={available}
+              onStart={async (id, betAmount, mineCount) => {
+                await act({ type: 'mines_start', id, bet: betAmount, mineCount });
+              }}
+              onCashout={async (id, multiplier, betAmount) => {
+                await act({ type: 'mines_cashout', id, multiplier });
+                notify(`${multiplier.toFixed(2)}배 캐시아웃 성공! (+${fmt(Math.round(betAmount * multiplier))} 코인)`);
+              }}
+              onBust={async id => {
+                await act({ type: 'mines_bust', id });
+                notify('폭탄이 폭발하여 코인을 잃었습니다!');
               }}
               onError={msg => notify(msg)}
             />
@@ -1123,42 +1176,77 @@ export default function App() {
                   <ArrowRight size={19} />
                 </span>
               </button>
+              <button className="lounge-card available" onClick={() => go('mines')}>
+                <span className="eyebrow">05 / AVAILABLE NOW</span>
+                <Bomb size={80} />
+                <h2>다이아 찾기</h2>
+                <p>폭탄을 피해 다이아를 찾고, 원하는 순간 코인을 캐시아웃!</p>
+                <span className="lounge-action">
+                  지금 플레이
+                  <ArrowRight size={19} />
+                </span>
+              </button>
             </div>
           )}
 
           {/* New Quests, Daily Wheel & Achievements Hub */}
           {page === 'missions' && (
             <div className="quests-hub-layout">
-              {/* Hub Tabs */}
-              <div className="quests-nav-tabs">
+              {/* Hub Tabs & Claim All Header */}
+              <div className="quests-header-row">
+                <div className="quests-nav-tabs">
+                  <button
+                    className={`quest-tab-btn ${questTab === 'wheel' ? 'active' : ''}`}
+                    onClick={() => setQuestTab('wheel')}
+                  >
+                    <Gift size={18} />
+                    <span>출석 & 행운 룰렛</span>
+                    {wheelReady && <span className="mini-badge-dot" />}
+                  </button>
+                  <button
+                    className={`quest-tab-btn ${questTab === 'daily' ? 'active' : ''}`}
+                    onClick={() => setQuestTab('daily')}
+                  >
+                    <CalendarCheck size={18} />
+                    <span>일일 퀘스트</span>
+                    {DAILY_QUESTS.some(
+                      q => (q.type === 'rounds' ? p.dailyRounds : p.dailyMaxMult) >= q.target && !p.dailyClaimed.includes(q.id)
+                    ) && <span className="mini-badge-dot" />}
+                  </button>
+                  <button
+                    className={`quest-tab-btn ${questTab === 'weekly' ? 'active' : ''}`}
+                    onClick={() => setQuestTab('weekly')}
+                  >
+                    <Flame size={18} />
+                    <span>주간 퀘스트</span>
+                    {WEEKLY_QUESTS.some(
+                      q => (q.type === 'rounds' ? p.weeklyRounds : p.weeklyMaxMult) >= q.target && !p.weeklyClaimed.includes(q.id)
+                    ) && <span className="mini-badge-dot" />}
+                  </button>
+                  <button
+                    className={`quest-tab-btn ${questTab === 'achievements' ? 'active' : ''}`}
+                    onClick={() => setQuestTab('achievements')}
+                  >
+                    <Trophy size={18} />
+                    <span>명예의 업적</span>
+                    {ACHIEVEMENTS.some(a => isAchievementDone(a, p) && !p.achievementsClaimed.includes(a.id)) && (
+                      <span className="mini-badge-dot" />
+                    )}
+                  </button>
+                </div>
+
                 <button
-                  className={`quest-tab-btn ${questTab === 'wheel' ? 'active' : ''}`}
-                  onClick={() => setQuestTab('wheel')}
+                  className={`claim-all-button ${totalClaimableCount > 0 ? 'ready' : 'empty'}`}
+                  disabled={!available || totalClaimableCount === 0}
+                  onClick={() =>
+                    void run(
+                      { type: 'claim_all' },
+                      `달성 완료된 ${totalClaimableCount}개의 보상을 모두 일괄 수령했습니다!`
+                    )
+                  }
                 >
-                  <Gift size={18} />
-                  <span>출석 & 행운 룰렛</span>
-                  {wheelReady && <span className="mini-badge-dot" />}
-                </button>
-                <button
-                  className={`quest-tab-btn ${questTab === 'daily' ? 'active' : ''}`}
-                  onClick={() => setQuestTab('daily')}
-                >
-                  <CalendarCheck size={18} />
-                  <span>일일 퀘스트</span>
-                </button>
-                <button
-                  className={`quest-tab-btn ${questTab === 'weekly' ? 'active' : ''}`}
-                  onClick={() => setQuestTab('weekly')}
-                >
-                  <Flame size={18} />
-                  <span>주간 퀘스트</span>
-                </button>
-                <button
-                  className={`quest-tab-btn ${questTab === 'achievements' ? 'active' : ''}`}
-                  onClick={() => setQuestTab('achievements')}
-                >
-                  <Trophy size={18} />
-                  <span>명예의 업적</span>
+                  <Sparkles size={16} />
+                  <span>보상 모두 받기 {totalClaimableCount > 0 ? `(${totalClaimableCount})` : ''}</span>
                 </button>
               </div>
 
@@ -1172,7 +1260,7 @@ export default function App() {
                         <span>DAILY ATTENDANCE</span>
                       </div>
                       <h3>오늘의 출석 체크</h3>
-                      <p>매일 접속하고 500코인을 무료로 받으세요! (매일 자정 00:00 KST 기준 갱신)</p>
+                      <p>매일 접속하고 500코인을 무료로 받으세요! (매일 오전 09:00 KST 기준 갱신)</p>
                     </div>
                     <button
                       className="primary-button checkin-action-btn"
@@ -1205,7 +1293,7 @@ export default function App() {
                   <div className="quest-header-banner">
                     <div>
                       <h3>일일 퀘스트 (Daily Quests)</h3>
-                      <p>매일 자정(00:00)에 초기화됩니다. 가볍게 플레이하고 매일 코인을 챙겨가세요!</p>
+                      <p>매일 오전 9시(09:00 KST)에 초기화됩니다. 가볍게 플레이하고 매일 코인을 챙겨가세요!</p>
                     </div>
                     <div className="quest-stat-pill">
                       <span>오늘 플레이: <b>{p.dailyRounds}</b>회</span>
@@ -1254,7 +1342,7 @@ export default function App() {
                   <div className="quest-header-banner">
                     <div>
                       <h3>주간 퀘스트 (Weekly Quests)</h3>
-                      <p>매주 월요일 00시에 초기화됩니다. 한 주간 꾸준히 도전하고 고액 코인을 획득하세요!</p>
+                      <p>매주 월요일 오전 9시(09:00 KST)에 초기화됩니다. 한 주간 꾸준히 도전하고 고액 코인을 획득하세요!</p>
                     </div>
                     <div className="quest-stat-pill">
                       <span>이번 주 플레이: <b>{p.weeklyRounds}</b>회</span>
@@ -1314,60 +1402,16 @@ export default function App() {
 
                   <div className="achievements-grid">
                     {ACHIEVEMENTS.map(ach => {
-                      let done = false;
+                      const targetVal = ach.target;
                       let currentVal = 0;
-                      let targetVal = 0;
+                      if (ach.type === 'rounds') currentVal = p.rounds;
+                      else if (ach.type === 'best') currentVal = p.best;
+                      else if (ach.type === 'owned_skins') currentVal = p.owned.length;
+                      else if (ach.type === 'owned_titles') currentVal = (p.ownedTitles || []).length;
+                      else if (ach.type === 'wagered') currentVal = p.wagered;
+                      else if (ach.type === 'earned') currentVal = p.earned;
 
-                      if (ach.id === 'ach_first_step') {
-                        currentVal = p.rounds;
-                        targetVal = 1;
-                        done = p.rounds >= 1;
-                      } else if (ach.id === 'ach_rounds_50') {
-                        currentVal = p.rounds;
-                        targetVal = 50;
-                        done = p.rounds >= 50;
-                      } else if (ach.id === 'ach_rounds_200') {
-                        currentVal = p.rounds;
-                        targetVal = 200;
-                        done = p.rounds >= 200;
-                      } else if (ach.id === 'ach_rounds_500') {
-                        currentVal = p.rounds;
-                        targetVal = 500;
-                        done = p.rounds >= 500;
-                      } else if (ach.id === 'ach_mult_2x') {
-                        currentVal = p.best;
-                        targetVal = 2;
-                        done = p.best >= 2;
-                      } else if (ach.id === 'ach_mult_5x') {
-                        currentVal = p.best;
-                        targetVal = 5;
-                        done = p.best >= 5;
-                      } else if (ach.id === 'ach_mult_10x') {
-                        currentVal = p.best;
-                        targetVal = 10;
-                        done = p.best >= 10;
-                      } else if (ach.id === 'ach_mult_20x') {
-                        currentVal = p.best;
-                        targetVal = 20;
-                        done = p.best >= 20;
-                      } else if (ach.id === 'ach_owned_7') {
-                        currentVal = p.owned.length;
-                        targetVal = 7;
-                        done = p.owned.length >= 7;
-                      } else if (ach.id === 'ach_owned_12') {
-                        currentVal = p.owned.length;
-                        targetVal = 12;
-                        done = p.owned.length >= 12;
-                      } else if (ach.id === 'ach_titles_3') {
-                        currentVal = (p.ownedTitles || []).length;
-                        targetVal = 3;
-                        done = (p.ownedTitles || []).length >= 3;
-                      } else if (ach.id === 'ach_titles_7') {
-                        currentVal = (p.ownedTitles || []).length;
-                        targetVal = 7;
-                        done = (p.ownedTitles || []).length >= 7;
-                      }
-
+                      const done = currentVal >= targetVal;
                       const claimed = p.achievementsClaimed.includes(ach.id);
 
                       return (
@@ -1386,7 +1430,7 @@ export default function App() {
                                 <div style={{ width: `${Math.min(100, (currentVal / targetVal) * 100)}%` }} />
                               </div>
                               <span>
-                                {Math.min(currentVal, targetVal)} / {targetVal}
+                                {fmt(Math.min(currentVal, targetVal))} / {fmt(targetVal)}
                               </span>
                             </div>
                           </div>
@@ -1468,9 +1512,25 @@ export default function App() {
                     className={`toggle ${p.sound ? 'on' : ''}`}
                     role="switch"
                     aria-checked={p.sound}
-                    aria-label="게임 소리"
+                    aria-label="게임 효과음"
                     disabled={!available}
                     onClick={() => void run({ type: 'sound' })}
+                  >
+                    <span />
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <b>배경음악 (BGM)</b>
+                    <p>은은한 사이버펑크 레트로 신스웨이브 음악</p>
+                  </div>
+                  <button
+                    className={`toggle ${p.bgm ? 'on' : ''}`}
+                    role="switch"
+                    aria-checked={p.bgm}
+                    aria-label="배경음악"
+                    disabled={!available}
+                    onClick={() => void run({ type: 'bgm' }, p.bgm ? '배경음악을 껐습니다.' : '배경음악을 켰습니다.')}
                   >
                     <span />
                   </button>
@@ -1625,16 +1685,28 @@ export default function App() {
           ) : modal === 'help' ? (
             <div className="help-content">
               <div>
-                <b>01. 공 가격을 고르세요</b>
-                <p>10~10,000코인 중 선택합니다. 금액 목록에서 바로 고르거나 빠른 선택 버튼을 사용할 수 있어요.</p>
+                <b>🎯 01. 플링코 (Plinko)</b>
+                <p>10~10,000코인을 베팅해 공을 떨어뜨리세요. 핀 사이를 튕기며 하단 슬롯에 도착하면 최대 20배까지 배당을 받습니다.</p>
               </div>
               <div>
-                <b>02. 어디에 떨어지는지 지켜보세요</b>
-                <p>실제 물리 충돌로 도착 칸을 결정합니다. 공은 동시에 5개까지 떨어뜨릴 수 있어요.</p>
+                <b>🚀 02. 로켓 크래시 (Crash)</b>
+                <p>로켓이 상승하면서 배율이 실시간으로 증가합니다. 로켓이 공중에서 폭발하기 직전 탈출(캐시아웃)에 성공해 코인을 획득하세요.</p>
               </div>
               <div>
-                <b>03. 배율만큼 돌려받으세요</b>
-                <p>100코인으로 2배에 도착하면 200코인 지급, 순이익은 100코인입니다.</p>
+                <b>🏇 03. 네온 경마 (Neon Race)</b>
+                <p>4마리의 사이버 레이스마 중 한 마리를 선택하세요. 결승선에 1등으로 도착하면 베팅 코인의 3배를 지급합니다.</p>
+              </div>
+              <div>
+                <b>🐧 04. 펭귄 점프 (Penguin Jump)</b>
+                <p>위태로운 7개의 얼음 디딤돌을 하나씩 건너보세요. 다음 단계로 나아갈수록 배율이 기하급수적으로 오르며 최대 50배까지 도전할 수 있습니다.</p>
+              </div>
+              <div>
+                <b>💎 05. 다이아 찾기 (Diamond Hunt)</b>
+                <p>25개의 타일 속에 숨겨진 폭탄을 피해 다이아몬드를 수집하세요. 언제든 원하는 순간 캐시아웃 버튼을 눌러 안전하게 코인을 챙길 수 있습니다.</p>
+              </div>
+              <div>
+                <b>🎁 06. 퀘스트 & 출석 룰렛 (Missions & Wheel)</b>
+                <p>매일 오전 9시(KST)에 일일 퀘스트와 출석 체크가 갱신됩니다. 24시간마다 무료 행운 룰렛을 돌리고 업적 보상으로 대량의 코인을 획득하세요.</p>
               </div>
             </div>
           ) : modal === 'reset' ? (

@@ -275,26 +275,55 @@ export const WEEKLY_QUESTS: Quest[] = [
   { id: 'wq_win5x', name: '주간 빅 윈 (Big Win)', description: '이번 주 배율 5배 이상 적중 1회', reward: 5000, target: 1, type: 'win_mult' },
 ];
 
-// --- 🏆 Achievements (영구 도전 과제 & 업적 - 보상: 풍성한 코인!) ---
+// --- 🏆 Achievements (영구 도전 과제 & 단계별 누적 업적 - 지속 코인 보상!) ---
 export type Achievement = {
   id: string;
   name: string;
   description: string;
   reward: number; // 코인 보상!
-  category: 'gameplay' | 'jackpot' | 'collection';
+  category: 'wager' | 'earn' | 'rounds' | 'jackpot' | 'collection';
+  type: 'wagered' | 'earned' | 'rounds' | 'best' | 'owned_skins' | 'owned_titles';
+  target: number;
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'ach_first_step', name: '첫 발자국', description: '아케이드 게임 누적 1회 플레이 달성', reward: 500, category: 'gameplay' },
-  { id: 'ach_rounds_50', name: '열정적인 갬블러', description: '누적 50회 플레이 달성', reward: 1500, category: 'gameplay' },
-  { id: 'ach_rounds_200', name: '티케 라운지의 VIP', description: '누적 200회 플레이 달성', reward: 5000, category: 'gameplay' },
-  { id: 'ach_rounds_500', name: '아케이드의 전설', description: '누적 500회 플레이 달성', reward: 15000, category: 'gameplay' },
-  { id: 'ach_mult_2x', name: '짜릿한 승리', description: '단일 게임 2배 이상 배율 달성', reward: 500, category: 'jackpot' },
-  { id: 'ach_mult_5x', name: '빅 윈 (Big Win)', description: '단일 게임 5배 이상 배율 적중', reward: 2000, category: 'jackpot' },
-  { id: 'ach_mult_10x', name: '메가 잭팟 (Mega Jackpot)', description: '단일 게임 10배 이상 배율 적중', reward: 5000, category: 'jackpot' },
-  { id: 'ach_mult_20x', name: '기적의 순간', description: '단일 게임 20배 이상 최고 배율 적중', reward: 15000, category: 'jackpot' },
-  { id: 'ach_owned_7', name: '스킨 매니아', description: '보유 스킨 7개 이상 수집', reward: 3000, category: 'collection' },
-  { id: 'ach_owned_12', name: '패셔니스타', description: '보유 스킨 12개 이상 수집', reward: 8000, category: 'collection' },
-  { id: 'ach_titles_3', name: '이름 높은 자', description: '칭호 3개 이상 보유', reward: 2500, category: 'collection' },
-  { id: 'ach_titles_7', name: '전설의 칭호 수집가', description: '칭호 7개 이상 보유', reward: 10000, category: 'collection' },
+  // 1. 코인 소모 단계별 업적 (플레이할수록 계속 획득!)
+  { id: 'ach_wager_1k', name: '가벼운 베팅', description: '누적 1,000 코인 소모', reward: 200, category: 'wager', type: 'wagered', target: 1000 },
+  { id: 'ach_wager_5k', name: '손끝의 열기', description: '누적 5,000 코인 소모', reward: 500, category: 'wager', type: 'wagered', target: 5000 },
+  { id: 'ach_wager_10k', name: '본격적인 승부사', description: '누적 10,000 코인 소모', reward: 1000, category: 'wager', type: 'wagered', target: 10000 },
+  { id: 'ach_wager_50k', name: '티케의 큰손', description: '누적 50,000 코인 소모', reward: 3500, category: 'wager', type: 'wagered', target: 50000 },
+  { id: 'ach_wager_100k', name: '아케이드 하이롤러', description: '누적 100,000 코인 소모', reward: 8000, category: 'wager', type: 'wagered', target: 100000 },
+  { id: 'ach_wager_500k', name: 'VIP 플래티넘 갬블러', description: '누적 500,000 코인 소모', reward: 30000, category: 'wager', type: 'wagered', target: 500000 },
+  { id: 'ach_wager_1m', name: '백만 코인의 지배자', description: '누적 1,000,000 코인 소모', reward: 60000, category: 'wager', type: 'wagered', target: 1000000 },
+
+  // 2. 누적 당첨금 단계별 업적
+  { id: 'ach_earn_1k', name: '작은 수확', description: '누적 1,000 코인 당첨 획득', reward: 200, category: 'earn', type: 'earned', target: 1000 },
+  { id: 'ach_earn_5k', name: '쏠쏠한 기쁨', description: '누적 5,000 코인 당첨 획득', reward: 500, category: 'earn', type: 'earned', target: 5000 },
+  { id: 'ach_earn_10k', name: '자금 불리기', description: '누적 10,000 코인 당첨 획득', reward: 1000, category: 'earn', type: 'earned', target: 10000 },
+  { id: 'ach_earn_50k', name: '황금 손의 소유자', description: '누적 50,000 코인 당첨 획득', reward: 3500, category: 'earn', type: 'earned', target: 50000 },
+  { id: 'ach_earn_100k', name: '십만 장자', description: '누적 100,000 코인 당첨 획득', reward: 8000, category: 'earn', type: 'earned', target: 100000 },
+  { id: 'ach_earn_500k', name: '성공 신화', description: '누적 500,000 코인 당첨 획득', reward: 30000, category: 'earn', type: 'earned', target: 500000 },
+  { id: 'ach_earn_1m', name: '티케의 백만장자', description: '누적 1,000,000 코인 당첨 획득', reward: 70000, category: 'earn', type: 'earned', target: 1000000 },
+
+  // 3. 누적 플레이 횟수 단계별 업적
+  { id: 'ach_first_step', name: '첫 발자국', description: '아케이드 게임 누적 1회 플레이 달성', reward: 300, category: 'rounds', type: 'rounds', target: 1 },
+  { id: 'ach_rounds_10', name: '아케이드 입문', description: '누적 10회 플레이 달성', reward: 500, category: 'rounds', type: 'rounds', target: 10 },
+  { id: 'ach_rounds_25', name: '흥미진진한 탐험', description: '누적 25회 플레이 달성', reward: 800, category: 'rounds', type: 'rounds', target: 25 },
+  { id: 'ach_rounds_50', name: '열정적인 갬블러', description: '누적 50회 플레이 달성', reward: 1500, category: 'rounds', type: 'rounds', target: 50 },
+  { id: 'ach_rounds_100', name: '단골 고객', description: '누적 100회 플레이 달성', reward: 3000, category: 'rounds', type: 'rounds', target: 100 },
+  { id: 'ach_rounds_200', name: '티케 라운지의 VIP', description: '누적 200회 플레이 달성', reward: 5000, category: 'rounds', type: 'rounds', target: 200 },
+  { id: 'ach_rounds_500', name: '아케이드의 전설', description: '누적 500회 플레이 달성', reward: 15000, category: 'rounds', type: 'rounds', target: 500 },
+  { id: 'ach_rounds_1000', name: '불멸의 아케이드 마스터', description: '누적 1,000회 플레이 달성', reward: 35000, category: 'rounds', type: 'rounds', target: 1000 },
+
+  // 4. 배율 잭팟 업적
+  { id: 'ach_mult_2x', name: '짜릿한 승리', description: '단일 게임 2배 이상 배율 달성', reward: 500, category: 'jackpot', type: 'best', target: 2.0 },
+  { id: 'ach_mult_5x', name: '빅 윈 (Big Win)', description: '단일 게임 5배 이상 배율 적중', reward: 2000, category: 'jackpot', type: 'best', target: 5.0 },
+  { id: 'ach_mult_10x', name: '메가 잭팟 (Mega Jackpot)', description: '단일 게임 10배 이상 배율 적중', reward: 5000, category: 'jackpot', type: 'best', target: 10.0 },
+  { id: 'ach_mult_20x', name: '기적의 순간', description: '단일 게임 20배 이상 최고 배율 적중', reward: 15000, category: 'jackpot', type: 'best', target: 20.0 },
+
+  // 5. 수집 업적
+  { id: 'ach_owned_7', name: '스킨 매니아', description: '보유 스킨 7개 이상 수집', reward: 3000, category: 'collection', type: 'owned_skins', target: 7 },
+  { id: 'ach_owned_12', name: '패셔니스타', description: '보유 스킨 12개 이상 수집', reward: 8000, category: 'collection', type: 'owned_skins', target: 12 },
+  { id: 'ach_titles_3', name: '이름 높은 자', description: '칭호 3개 이상 보유', reward: 2500, category: 'collection', type: 'owned_titles', target: 3 },
+  { id: 'ach_titles_7', name: '전설의 칭호 수집가', description: '칭호 7개 이상 보유', reward: 10000, category: 'collection', type: 'owned_titles', target: 7 },
 ];

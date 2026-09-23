@@ -1,4 +1,15 @@
-import { BETS, CATALOG, MISSIONS, MULTIPLIERS, HISTORICAL_MULTIPLIERS, BOXES, TITLES, WHEEL_SLOTS, DAILY_QUESTS, WEEKLY_QUESTS, ACHIEVEMENTS, type Category, type BoxPrize } from './catalog.ts';
+import { BETS, CATALOG, MISSIONS, MULTIPLIERS, HISTORICAL_MULTIPLIERS, BOXES, TITLES, WHEEL_SLOTS, DAILY_QUESTS, WEEKLY_QUESTS, ACHIEVEMENTS, type Category, type BoxPrize, type Achievement } from './catalog.ts';
+import { computeProfileChecksum, verifyProfileChecksum } from './security.ts';
+
+export function isAchievementDone(ach: Achievement, p: Profile): boolean {
+  if (ach.type === 'wagered') return p.wagered >= ach.target;
+  if (ach.type === 'earned') return p.earned >= ach.target;
+  if (ach.type === 'rounds') return p.rounds >= ach.target;
+  if (ach.type === 'best') return p.best >= ach.target;
+  if (ach.type === 'owned_skins') return p.owned.length >= ach.target;
+  if (ach.type === 'owned_titles') return (p.ownedTitles || []).length >= ach.target;
+  return false;
+}
 
 export type Pending = {id:string; bet:number; created:number; target?:number};
 export type Result = {id:string; bet:number; multiplier:number; payout:number; time:number};
@@ -19,6 +30,7 @@ export type Profile = {
   claimed: string[];
   lastRelief: number;
   sound: boolean;
+  bgm: boolean;
   savedAt: number;
   // --- New features: Daily Wheel, Quests, Achievements ---
   lastWheelSpin: number;
@@ -32,6 +44,7 @@ export type Profile = {
   weeklyKey: string;
   weeklyClaimed: string[];
   achievementsClaimed: string[];
+  checksum?: string;
 };
 
 export const getDayKey = (time = Date.now()): string => new Date(time).toISOString().slice(0, 10);
@@ -42,35 +55,40 @@ export const getWeekKey = (time = Date.now()): string => {
   return `${d.getFullYear()}-W${weekNo}`;
 };
 
-export const initialProfile = (): Profile => ({
-  version: 1,
-  balance: 10000,
-  owned: ['ball-coral', 'board-midnight', 'trail-none', 'rocket-classic', 'penguin-classic'],
-  equipped: { ball: 'ball-coral', board: 'board-midnight', trail: 'trail-none', rocket: 'rocket-classic', penguin: 'penguin-classic' },
-  title: '티케의 손님',
-  ownedTitles: ['티케의 손님'],
-  results: [],
-  pending: [],
-  rounds: 0,
-  wagered: 0,
-  earned: 0,
-  best: 0,
-  claimed: [],
-  lastRelief: 0,
-  sound: false,
-  savedAt: Date.now(),
-  lastWheelSpin: 0,
-  lastAttendance: 0,
-  dailyRounds: 0,
-  dailyMaxMult: 0,
-  dailyDate: getDayKey(),
-  dailyClaimed: [],
-  weeklyRounds: 0,
-  weeklyMaxMult: 0,
-  weeklyKey: getWeekKey(),
-  weeklyClaimed: [],
-  achievementsClaimed: [],
-});
+export const initialProfile = (): Profile => {
+  const p: Profile = {
+    version: 1,
+    balance: 10000,
+    owned: ['ball-coral', 'board-midnight', 'trail-none', 'rocket-classic', 'penguin-classic'],
+    equipped: { ball: 'ball-coral', board: 'board-midnight', trail: 'trail-none', rocket: 'rocket-classic', penguin: 'penguin-classic' },
+    title: '티케의 손님',
+    ownedTitles: ['티케의 손님'],
+    results: [],
+    pending: [],
+    rounds: 0,
+    wagered: 0,
+    earned: 0,
+    best: 0,
+    claimed: [],
+    lastRelief: 0,
+    sound: false,
+    bgm: false,
+    savedAt: Date.now(),
+    lastWheelSpin: 0,
+    lastAttendance: 0,
+    dailyRounds: 0,
+    dailyMaxMult: 0,
+    dailyDate: getDayKey(),
+    dailyClaimed: [],
+    weeklyRounds: 0,
+    weeklyMaxMult: 0,
+    weeklyKey: getWeekKey(),
+    weeklyClaimed: [],
+    achievementsClaimed: [],
+  };
+  p.checksum = computeProfileChecksum(p);
+  return p;
+};
 
 export type Action =
   | {type:'drop'; id:string; bet:number}
@@ -92,15 +110,20 @@ export type Action =
   | {type:'title_equip'; title:string}
   | {type:'relief'}
   | {type:'sound'}
+  | {type:'bgm'}
   | {type:'reset'}
   | {type:'wheel_spin'; slotIndex:number}
   | {type:'attendance'}
   | {type:'daily_claim'; questId:string}
   | {type:'weekly_claim'; questId:string}
   | {type:'achievement_claim'; achievementId:string}
-  | {type:'coin_tap'};
+  | {type:'coin_tap'}
+  | {type:'mines_start'; id:string; bet:number; mineCount:number}
+  | {type:'mines_cashout'; id:string; multiplier:number}
+  | {type:'mines_bust'; id:string}
+  | {type:'claim_all'};
 
-function recordRoundProgress(p: Profile, multiplier: number, now: number) {
+export function syncDailyAndWeekly(p: Profile, now: number) {
   const today = getDayKey(now);
   if (p.dailyDate !== today) {
     p.dailyDate = today;
@@ -115,6 +138,10 @@ function recordRoundProgress(p: Profile, multiplier: number, now: number) {
     p.weeklyMaxMult = 0;
     p.weeklyClaimed = [];
   }
+}
+
+function recordRoundProgress(p: Profile, multiplier: number, now: number) {
+  syncDailyAndWeekly(p, now);
   p.dailyRounds++;
   p.dailyMaxMult = Math.max(p.dailyMaxMult, multiplier);
   p.weeklyRounds++;
@@ -124,6 +151,7 @@ function recordRoundProgress(p: Profile, multiplier: number, now: number) {
 export function reduceProfile(previous: Profile, action: Action, now = Date.now()): Profile {
   const p = structuredClone(previous);
   p.savedAt = now;
+  syncDailyAndWeekly(p, now);
 
   switch (action.type) {
     case 'drop':
@@ -337,6 +365,10 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       p.sound = !p.sound;
       break;
 
+    case 'bgm':
+      p.bgm = !p.bgm;
+      break;
+
     case 'reset':
       if (p.pending.length) throw new Error('진행 중인 게임이 모두 끝난 뒤 초기화해 주세요.');
       return initialProfile();
@@ -390,20 +422,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       const ach = ACHIEVEMENTS.find(a => a.id === action.achievementId);
       if (!ach) throw new Error('업적을 찾을 수 없습니다.');
       if (p.achievementsClaimed.includes(ach.id)) throw new Error('이미 보상을 수령한 업적입니다.');
-      let achieved = false;
-      if (ach.id === 'ach_first_step') achieved = p.rounds >= 1;
-      else if (ach.id === 'ach_rounds_50') achieved = p.rounds >= 50;
-      else if (ach.id === 'ach_rounds_200') achieved = p.rounds >= 200;
-      else if (ach.id === 'ach_rounds_500') achieved = p.rounds >= 500;
-      else if (ach.id === 'ach_mult_2x') achieved = p.best >= 2.0;
-      else if (ach.id === 'ach_mult_5x') achieved = p.best >= 5.0;
-      else if (ach.id === 'ach_mult_10x') achieved = p.best >= 10.0;
-      else if (ach.id === 'ach_mult_20x') achieved = p.best >= 20.0;
-      else if (ach.id === 'ach_owned_7') achieved = p.owned.length >= 7;
-      else if (ach.id === 'ach_owned_12') achieved = p.owned.length >= 12;
-      else if (ach.id === 'ach_titles_3') achieved = (p.ownedTitles || []).length >= 3;
-      else if (ach.id === 'ach_titles_7') achieved = (p.ownedTitles || []).length >= 7;
-      if (!achieved) throw new Error('아직 달성하지 못한 업적입니다.');
+      if (!isAchievementDone(ach, p)) throw new Error('아직 달성하지 못한 업적입니다.');
       p.balance += ach.reward;
       p.achievementsClaimed.push(ach.id);
       break;
@@ -413,9 +432,88 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       if (p.balance >= 100) throw new Error('잔액이 100코인 미만일 때만 비상 동전을 주울 수 있습니다.');
       p.balance += 50;
       break;
+
+    case 'mines_start': {
+      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (p.pending.length >= 5) throw new Error('진행 중인 게임이 있습니다.');
+      if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 게임입니다.');
+      if (action.mineCount < 1 || action.mineCount > 24) throw new Error('지뢰 개수를 확인해 주세요.');
+      p.balance -= action.bet;
+      p.pending.push({ id: action.id, bet: action.bet, created: now, target: action.mineCount });
+      break;
+    }
+
+    case 'mines_cashout': {
+      const b = p.pending.find(b => b.id === action.id);
+      if (!b) return previous;
+      if (typeof action.multiplier !== 'number' || !Number.isFinite(action.multiplier) || action.multiplier < 1.0) {
+        throw new Error('올바른 배율이 아닙니다.');
+      }
+      const mult = Math.round(action.multiplier * 100) / 100;
+      const payout = Math.floor(b.bet * mult);
+      p.pending = p.pending.filter(x => x.id !== b.id);
+      p.balance += payout;
+      p.rounds++;
+      p.wagered += b.bet;
+      p.earned += payout;
+      p.best = Math.max(p.best, mult);
+      recordRoundProgress(p, mult, now);
+      p.results = [{ id: b.id, bet: b.bet, multiplier: mult, payout, time: now }, ...p.results].slice(0, 30);
+      break;
+    }
+
+    case 'mines_bust': {
+      const b = p.pending.find(b => b.id === action.id);
+      if (!b) return previous;
+      p.pending = p.pending.filter(x => x.id !== b.id);
+      p.rounds++;
+      p.wagered += b.bet;
+      recordRoundProgress(p, 0, now);
+      p.results = [{ id: b.id, bet: b.bet, multiplier: 0, payout: 0, time: now }, ...p.results].slice(0, 30);
+      break;
+    }
+
+    case 'claim_all': {
+      let totalReward = 0;
+      // 1. Daily quests
+      for (const q of DAILY_QUESTS) {
+        if (!p.dailyClaimed.includes(q.id)) {
+          const done = q.type === 'rounds' ? p.dailyRounds >= q.target : p.dailyMaxMult >= q.target;
+          if (done) {
+            p.dailyClaimed.push(q.id);
+            totalReward += q.reward;
+          }
+        }
+      }
+      // 2. Weekly quests
+      for (const q of WEEKLY_QUESTS) {
+        if (!p.weeklyClaimed.includes(q.id)) {
+          const done = q.type === 'rounds' ? p.weeklyRounds >= q.target : p.weeklyMaxMult >= q.target;
+          if (done) {
+            p.weeklyClaimed.push(q.id);
+            totalReward += q.reward;
+          }
+        }
+      }
+      // 3. Achievements
+      for (const ach of ACHIEVEMENTS) {
+        if (!p.achievementsClaimed.includes(ach.id)) {
+          if (isAchievementDone(ach, p)) {
+            p.achievementsClaimed.push(ach.id);
+            totalReward += ach.reward;
+          }
+        }
+      }
+      if (totalReward === 0) {
+        throw new Error('수령 가능한 보상이 없습니다.');
+      }
+      p.balance += totalReward;
+      break;
+    }
   }
 
   if (!Number.isSafeInteger(p.balance) || p.balance < 0) throw new Error('잔액 범위를 벗어났습니다.');
+  p.checksum = computeProfileChecksum(p);
   return p;
 }
 
@@ -426,13 +524,18 @@ export function validateProfile(raw: unknown, backup = false): Profile {
   if (!raw || typeof raw !== 'object') throw new Error('올바른 저장 파일이 아닙니다.');
   const p = raw as Partial<Profile>;
   if (p.version !== 1) throw new Error('지원하지 않는 저장 버전입니다.');
+
+  if (p.checksum && !verifyProfileChecksum(p)) {
+    throw new Error('로컬 저장소의 데이터가 변조되었습니다.');
+  }
+
   if (
     !['balance', 'rounds', 'wagered', 'earned', 'lastRelief', 'savedAt'].every(k => integer(p[k as keyof Profile])) ||
     typeof p.sound !== 'boolean' ||
     !Number.isFinite(p.best) ||
     p.best === undefined ||
     p.best < 0 ||
-    p.best > 1000
+    p.best > 10000000
   ) {
     throw new Error('저장된 숫자가 올바르지 않습니다.');
   }
@@ -481,7 +584,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
         b.id.length < 100 &&
         BETS.includes(b.bet) &&
         integer(b.created) &&
-        (b.target === undefined || (typeof b.target === 'number' && b.target >= 0 && b.target <= 3))
+        (b.target === undefined || (typeof b.target === 'number' && b.target >= 0 && b.target <= 24))
     ) ||
     new Set(p.pending.map(b => b.id)).size !== p.pending.length
   ) {
@@ -502,10 +605,11 @@ export function validateProfile(raw: unknown, backup = false): Profile {
         typeof r.multiplier === 'number' &&
         Number.isFinite(r.multiplier) &&
         r.multiplier >= 0 &&
-        r.multiplier <= 1000 &&
+        r.multiplier <= 10000000 &&
         (HISTORICAL_MULTIPLIERS.includes(r.multiplier) ||
           (r.multiplier === 0 && r.payout === 0) ||
-          r.payout === Math.round(r.bet * r.multiplier)) &&
+          r.payout === Math.round(r.bet * r.multiplier) ||
+          r.payout === Math.floor(r.bet * r.multiplier)) &&
         integer(r.time)
     )
   ) {
@@ -535,7 +639,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
   const weeklyClaimed = Array.isArray(p.weeklyClaimed) ? Array.from(new Set(p.weeklyClaimed)) : [];
   const achievementsClaimed = Array.isArray(p.achievementsClaimed) ? Array.from(new Set(p.achievementsClaimed)) : [];
 
-  return {
+  const validated: Profile = {
     version: 1,
     balance: p.balance!,
     owned: [...owned],
@@ -556,7 +660,8 @@ export function validateProfile(raw: unknown, backup = false): Profile {
     best: p.best,
     claimed: [...p.claimed],
     lastRelief: p.lastRelief!,
-    sound: p.sound,
+    sound: typeof p.sound === 'boolean' ? p.sound : false,
+    bgm: typeof p.bgm === 'boolean' ? p.bgm : false,
     savedAt: p.savedAt!,
     lastWheelSpin,
     lastAttendance,
@@ -570,4 +675,6 @@ export function validateProfile(raw: unknown, backup = false): Profile {
     weeklyClaimed,
     achievementsClaimed,
   };
+  validated.checksum = computeProfileChecksum(validated);
+  return validated;
 }
