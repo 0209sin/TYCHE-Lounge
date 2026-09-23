@@ -26,10 +26,16 @@ type PenguinProps = {
 
 export default function Penguin({ profile, available, onStart, onCashout, onFall, onError }: PenguinProps) {
   const [bet, setBet] = useState(100);
+  const [activeBet, setActiveBet] = useState(100);
   const [currentStep, setCurrentStep] = useState(0); // 0 = start platform, 1~7 = ice floes
   const [phase, setPhase] = useState<Phase>('idle');
   const [busy, setBusy] = useState(false);
   const [gameId, setGameId] = useState<string>('');
+  const [lastRound, setLastRound] = useState<{
+    bet: number;
+    multiplier: number;
+    payout: number;
+  } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrame = useRef<number | null>(null);
@@ -52,6 +58,17 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
       }
     };
   }, [onFall]);
+
+  const changeBet = (newBet: number) => {
+    if (phase === 'jumping' || (phase === 'landed' && currentStep > 0)) return;
+    setBet(newBet);
+    if (phase === 'cashed_out' || phase === 'fallen') {
+      setPhase('idle');
+      setCurrentStep(0);
+      setGameId('');
+      setLastRound(null);
+    }
+  };
 
   // Jump animation state
   const jumpState = useRef<{
@@ -630,6 +647,8 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
       }
       id = crypto.randomUUID();
       setGameId(id);
+      setActiveBet(bet);
+      setLastRound(null);
       brokenTile.current = null;
       tileCrackProgress.current = 0;
       try {
@@ -666,12 +685,17 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
 
   // Fall settlement
   const handleFall = useCallback(async () => {
+    setLastRound({
+      bet: activeBet,
+      multiplier: 0,
+      payout: 0,
+    });
     try {
-      await onFall(gameId, bet);
+      await onFall(gameId, activeBet);
     } catch (e) {
       onError(e instanceof Error ? e.message : '실패 정산 오류');
     }
-  }, [gameId, bet, onFall, onError]);
+  }, [gameId, activeBet, onFall, onError]);
 
   // Cashout current multiplier
   const cashout = async () => {
@@ -680,8 +704,13 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
     const stepConfig = STEPS[currentStep - 1];
     playSound('win');
     setPhase('cashed_out');
+    setLastRound({
+      bet: activeBet,
+      multiplier: stepConfig.multiplier,
+      payout: Math.round(activeBet * stepConfig.multiplier),
+    });
     try {
-      await onCashout(gameId, stepConfig.multiplier, bet);
+      await onCashout(gameId, stepConfig.multiplier, activeBet);
     } catch (e) {
       onError(e instanceof Error ? e.message : '캐시아웃 실패');
     } finally {
@@ -692,17 +721,23 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   // Auto cashout for 50x 7th step
   const triggerAutoJackpot = useCallback(async () => {
     setPhase('cashed_out');
+    setLastRound({
+      bet: activeBet,
+      multiplier: 50.0,
+      payout: Math.round(activeBet * 50.0),
+    });
     try {
-      await onCashout(gameId, 50.0, bet);
+      await onCashout(gameId, 50.0, activeBet);
     } catch (e) {
       onError(e instanceof Error ? e.message : '잭팟 정산 실패');
     }
-  }, [gameId, bet, onCashout, onError]);
+  }, [gameId, activeBet, onCashout, onError]);
 
   // Reset to Play Again
   const resetGame = () => {
     setCurrentStep(0);
     setPhase('idle');
+    setLastRound(null);
     brokenTile.current = null;
     tileCrackProgress.current = 0;
   };
@@ -710,7 +745,7 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   const currentMultiplier = currentStep > 0 ? STEPS[currentStep - 1].multiplier : 1.0;
   const nextMultiplier = currentStep < 7 ? STEPS[currentStep].multiplier : 50.0;
   const nextRatePercent = currentStep < 7 ? Math.round(STEPS[currentStep].rate * 100) : 0;
-  const currentPayout = Math.round(bet * currentMultiplier);
+  const currentPayout = Math.round((phase === 'jumping' || currentStep > 0 ? activeBet : bet) * currentMultiplier);
 
   return (
     <div className="penguin-layout">
@@ -729,25 +764,25 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
             )}
 
             {/* Result Overlays */}
-            {phase === 'cashed_out' && (
+            {phase === 'cashed_out' && lastRound && (
               <div className="penguin-result-overlay">
                 <div className="result-banner win">
                   <Trophy size={28} />
                   <div>
-                    <h4>탈출 성공! {currentMultiplier}배 캐시아웃</h4>
-                    <p>+{fmt(currentPayout)} 코인을 획득했습니다! (순손익: +{fmt(currentPayout - bet)})</p>
+                    <h4>탈출 성공! {lastRound.multiplier}배 캐시아웃</h4>
+                    <p>+{fmt(lastRound.payout)} 코인을 획득했습니다! (순손익: +{fmt(lastRound.payout - lastRound.bet)})</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {phase === 'fallen' && (
+            {phase === 'fallen' && lastRound && (
               <div className="penguin-result-overlay">
                 <div className="result-banner loss">
                   <span className="cry-emoji">💦</span>
                   <div>
                     <h4>얼음이 콰직- 깨졌습니다!</h4>
-                    <p>펭귄이 물에 빠졌어요. (0배 처리, -{fmt(bet)} 코인)</p>
+                    <p>펭귄이 물에 빠졌어요. (0배 처리, -{fmt(lastRound.bet)} 코인)</p>
                   </div>
                 </div>
               </div>
@@ -821,14 +856,14 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
             <div className="bet-control">
               <button
                 disabled={bet === BETS[0] || phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
+                onClick={() => changeBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
               >
                 <Minus size={16} />
               </button>
               <select
                 value={bet}
                 disabled={phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onChange={e => setBet(Number(e.target.value))}
+                onChange={e => changeBet(Number(e.target.value))}
               >
                 {BETS.map(b => (
                   <option key={b} value={b}>{fmt(b)} 코인</option>
@@ -836,7 +871,7 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
               </select>
               <button
                 disabled={bet === BETS[BETS.length - 1] || phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onClick={() => setBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
+                onClick={() => changeBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
               >
                 <Plus size={16} />
               </button>
@@ -848,7 +883,7 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
                   key={b}
                   disabled={phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
                   className={bet === b ? 'selected' : ''}
-                  onClick={() => setBet(b)}
+                  onClick={() => changeBet(b)}
                 >
                   {fmt(b)}
                 </button>

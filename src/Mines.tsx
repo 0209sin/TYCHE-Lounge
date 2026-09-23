@@ -9,7 +9,6 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -45,6 +44,17 @@ const PRESET_MINES = [1, 2, 3, 5, 10, 15, 20] as const;
 export default function Mines({ profile, available, onStart, onCashout, onBust, onError }: MinesProps) {
   const [bet, setBet] = useState(100);
   const [mineCount, setMineCount] = useState<number>(3);
+  const [activeMineCount, setActiveMineCount] = useState<number>(3);
+  const [activeBet, setActiveBet] = useState<number>(100);
+  const [lastRound, setLastRound] = useState<{
+    bet: number;
+    mineCount: number;
+    multiplier: number;
+    payout: number;
+    userFoundCount: number;
+    status: 'won' | 'bust';
+  } | null>(null);
+
   const [gameActive, setGameActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [gameId, setGameId] = useState<string>('');
@@ -76,27 +86,64 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
     };
   }, [onBust]);
 
-  const maxDiamonds = 25 - mineCount;
-  const userFoundCount = pickedIndices.size;
+  // When changing bet or mineCount after game over, reset the board for a fresh game
+  const changeBet = (newBet: number) => {
+    if (gameActive || busy) return;
+    setBet(newBet);
+    if (gameOver) {
+      setGameOver(null);
+      setLastRound(null);
+      setRevealed(Array(25).fill(false));
+      setPickedIndices(new Set());
+      setHitIndex(null);
+    }
+  };
+
+  const changeMineCount = (newCount: number) => {
+    if (gameActive || busy) return;
+    setMineCount(newCount);
+    if (gameOver) {
+      setGameOver(null);
+      setLastRound(null);
+      setRevealed(Array(25).fill(false));
+      setPickedIndices(new Set());
+      setHitIndex(null);
+    }
+  };
+
+  const maxDiamonds = 25 - (gameActive ? activeMineCount : mineCount);
+  const userFoundCount = gameActive ? pickedIndices.size : lastRound ? lastRound.userFoundCount : 0;
   const isBust = gameOver === 'bust';
 
-  // Multiplier logic
+  // Multiplier logic - NEVER dynamically recalculate old round with new inputs!
   const currentMultiplier = isBust
     ? 0
-    : userFoundCount > 0
-    ? getMinesMultiplier(mineCount, userFoundCount)
+    : gameActive
+    ? userFoundCount > 0
+      ? getMinesMultiplier(activeMineCount, userFoundCount)
+      : 1.0
+    : lastRound
+    ? lastRound.multiplier
     : 1.0;
 
   const nextMultiplier =
-    isBust || userFoundCount >= maxDiamonds
+    isBust || gameOver !== null
       ? null
-      : getMinesMultiplier(mineCount, userFoundCount + 1);
+      : gameActive
+      ? userFoundCount >= maxDiamonds
+        ? null
+        : getMinesMultiplier(activeMineCount, userFoundCount + 1)
+      : getMinesMultiplier(mineCount, 1);
 
   // Payout calculation
   const currentPayout = isBust
     ? 0
-    : userFoundCount > 0
-    ? Math.floor(bet * currentMultiplier)
+    : gameActive
+    ? userFoundCount > 0
+      ? Math.floor(activeBet * currentMultiplier)
+      : 0
+    : lastRound
+    ? lastRound.payout
     : 0;
 
   // Mines specific statistics from profile.results
@@ -172,15 +219,20 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
     setBusy(true);
 
     try {
+      const selectedMinesCount = mineCount;
+      const selectedBetAmount = bet;
       const mines = new Set<number>();
-      while (mines.size < mineCount) {
+      while (mines.size < selectedMinesCount) {
         mines.add(Math.floor(Math.random() * 25));
       }
 
       const id = `mines_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      await onStart(id, bet, mineCount);
+      await onStart(id, selectedBetAmount, selectedMinesCount);
 
       setGameId(id);
+      setActiveMineCount(selectedMinesCount);
+      setActiveBet(selectedBetAmount);
+      setLastRound(null);
       setMinedIndices(mines);
       setRevealed(Array(25).fill(false));
       setPickedIndices(new Set());
@@ -205,10 +257,18 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
       setRevealed(Array(25).fill(true)); // reveal all so user sees whole board
       setGameOver('bust');
       setGameActive(false);
+      setLastRound({
+        bet: activeBet,
+        mineCount: activeMineCount,
+        multiplier: 0,
+        payout: 0,
+        userFoundCount: pickedIndices.size,
+        status: 'bust',
+      });
       playSound('mine');
       setBusy(true);
       try {
-        await onBust(gameId, bet);
+        await onBust(gameId, activeBet);
       } catch (err: unknown) {
         onError(err instanceof Error ? err.message : '결과 정산 중 오류가 발생했습니다.');
       } finally {
@@ -228,17 +288,27 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
     playSound('diamond');
 
     const newCount = newPicked.size;
+    const effectiveMax = 25 - activeMineCount;
 
     // Check if jackpot (found all diamonds)
-    if (newCount >= maxDiamonds) {
-      const finalMult = getMinesMultiplier(mineCount, maxDiamonds);
+    if (newCount >= effectiveMax) {
+      const finalMult = getMinesMultiplier(activeMineCount, effectiveMax);
+      const finalPayout = Math.floor(activeBet * finalMult);
       setGameOver('won');
       setGameActive(false);
+      setLastRound({
+        bet: activeBet,
+        mineCount: activeMineCount,
+        multiplier: finalMult,
+        payout: finalPayout,
+        userFoundCount: effectiveMax,
+        status: 'won',
+      });
       setRevealed(Array(25).fill(true));
       playSound('cashout');
       setBusy(true);
       try {
-        await onCashout(gameId, finalMult, bet);
+        await onCashout(gameId, finalMult, activeBet);
       } catch (err: unknown) {
         onError(err instanceof Error ? err.message : '정산 중 오류가 발생했습니다.');
       } finally {
@@ -249,15 +319,24 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
 
   // Cashout
   const handleCashout = async () => {
-    if (!gameActive || busy || userFoundCount === 0) return;
+    if (!gameActive || busy || pickedIndices.size === 0) return;
     setBusy(true);
     try {
-      const finalMult = currentMultiplier;
+      const finalMult = getMinesMultiplier(activeMineCount, pickedIndices.size);
+      const finalPayout = Math.floor(activeBet * finalMult);
       setGameOver('won');
       setGameActive(false);
+      setLastRound({
+        bet: activeBet,
+        mineCount: activeMineCount,
+        multiplier: finalMult,
+        payout: finalPayout,
+        userFoundCount: pickedIndices.size,
+        status: 'won',
+      });
       setRevealed(Array(25).fill(true)); // reveal rest of board
       playSound('cashout');
-      await onCashout(gameId, finalMult, bet);
+      await onCashout(gameId, finalMult, activeBet);
     } catch (err: unknown) {
       onError(err instanceof Error ? err.message : '캐시아웃 중 오류가 발생했습니다.');
     } finally {
@@ -285,14 +364,14 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
               <button
                 type="button"
                 disabled={gameActive || busy || bet === BETS[0]}
-                onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
+                onClick={() => changeBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
               >
                 <Minus size={16} />
               </button>
               <select
                 value={bet}
                 disabled={gameActive || busy}
-                onChange={e => setBet(Number(e.target.value))}
+                onChange={e => changeBet(Number(e.target.value))}
               >
                 {BETS.map(b => (
                   <option key={b} value={b} disabled={b > profile.balance}>
@@ -303,7 +382,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
               <button
                 type="button"
                 disabled={gameActive || busy || bet === BETS[BETS.length - 1] || BETS[BETS.indexOf(bet) + 1] > profile.balance}
-                onClick={() => setBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
+                onClick={() => changeBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
               >
                 <Plus size={16} />
               </button>
@@ -313,7 +392,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                   disabled={gameActive || busy || bet <= BETS[0]}
                   onClick={() => {
                     const half = BETS.slice().reverse().find(b => b <= bet / 2) ?? BETS[0];
-                    setBet(half);
+                    changeBet(half);
                   }}
                 >
                   ½
@@ -323,7 +402,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                   disabled={gameActive || busy || !BETS.some(b => b >= bet * 2 && b <= profile.balance)}
                   onClick={() => {
                     const dbl = BETS.find(b => b >= bet * 2 && b <= profile.balance);
-                    if (dbl) setBet(dbl);
+                    if (dbl) changeBet(dbl);
                   }}
                 >
                   2×
@@ -333,7 +412,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                   disabled={gameActive || busy || profile.balance < BETS[0]}
                   onClick={() => {
                     const maxAffordable = BETS.slice().reverse().find(b => b <= profile.balance);
-                    if (maxAffordable) setBet(maxAffordable);
+                    if (maxAffordable) changeBet(maxAffordable);
                   }}
                 >
                   최대
@@ -347,7 +426,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                   type="button"
                   disabled={gameActive || busy || profile.balance < b}
                   className={`bet-preset-btn ${bet === b ? 'active' : ''}`}
-                  onClick={() => setBet(b)}
+                  onClick={() => changeBet(b)}
                 >
                   {fmt(b)}
                 </button>
@@ -367,7 +446,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                   type="button"
                   disabled={gameActive || busy}
                   className={`mine-pill ${mineCount === m ? 'active' : ''}`}
-                  onClick={() => setMineCount(m)}
+                  onClick={() => changeMineCount(m)}
                 >
                   {m}
                 </button>
@@ -379,7 +458,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
               min={1}
               max={24}
               value={mineCount}
-              onChange={e => setMineCount(Number(e.target.value))}
+              onChange={e => changeMineCount(Number(e.target.value))}
               className="mine-slider"
             />
           </div>
@@ -418,15 +497,16 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
               disabled={!available || busy || profile.balance < bet}
               onClick={startGame}
             >
-              {profile.balance < bet ? '코인이 부족합니다' : '다이아 찾기 시작'}
+              <Bomb size={18} />
+              <span>다이아 찾기 시작</span>
             </button>
           ) : (
             <button
-              className={`cashout-mines-btn ${userFoundCount > 0 ? 'ready' : 'disabled'}`}
-              disabled={busy || userFoundCount === 0}
+              className={`primary-button full-width cashout-btn ${userFoundCount > 0 ? 'active' : ''}`}
+              disabled={!available || busy || userFoundCount === 0}
               onClick={handleCashout}
             >
-              <Sparkles size={18} />
+              <Coins size={18} />
               <span>
                 {userFoundCount === 0
                   ? '타일을 먼저 선택하세요'
@@ -447,8 +527,8 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
             <div className="grid-status-badge">
               {!gameActive && !gameOver && <span>타일을 누르고 다이아를 찾아보세요!</span>}
               {gameActive && <span className="pulse-green">진행 중 · 안전한 칸을 선택하세요!</span>}
-              {gameOver === 'won' && (
-                <span className="won-text">축하합니다! 캐시아웃 성공 (+{fmt(currentPayout)} 코인)</span>
+              {gameOver === 'won' && lastRound && (
+                <span className="won-text">축하합니다! 캐시아웃 성공 (+{fmt(lastRound.payout)} 코인)</span>
               )}
               {gameOver === 'bust' && <span className="bust-text">폭탄 폭발! 배팅 코인을 잃었습니다.</span>}
             </div>
@@ -457,7 +537,7 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
                 <Gem size={13} /> 남은 다이아: {gameOver ? 0 : maxDiamonds - userFoundCount}
               </span>
               <span className="info-pill danger">
-                <Bomb size={13} /> 폭탄: {mineCount}
+                <Bomb size={13} /> 폭탄: {gameActive || gameOver ? activeMineCount : mineCount}
               </span>
             </div>
           </div>
@@ -507,23 +587,23 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
           </div>
 
           {/* Quick restart bar with exact outcome summary after game over */}
-          {gameOver && (
+          {gameOver && lastRound && (
             <div className="mines-restart-banner">
               <div className="last-round-summary">
                 <span className="summary-title">
-                  {gameOver === 'won' ? '🎉 캐시아웃 성공' : '💥 폭탄 폭발'}
+                  {lastRound.status === 'won' ? '🎉 캐시아웃 성공' : '💥 폭탄 폭발'}
                 </span>
                 <span className="summary-details">
-                  {gameOver === 'won' ? (
+                  {lastRound.status === 'won' ? (
                     <>
-                      배팅 <b>{fmt(bet)}</b> 코인 ➔ <b>{currentMultiplier.toFixed(2)}배</b> 달성 ➔{' '}
-                      <b className="text-emerald">+{fmt(currentPayout)}</b> 코인 획득 (순이익{' '}
-                      <b className="text-emerald">+{fmt(currentPayout - bet)}</b> 코인)
+                      배팅 <b>{fmt(lastRound.bet)}</b> 코인 ➔ <b>{lastRound.multiplier.toFixed(2)}배</b> 달성 ➔{' '}
+                      <b className="text-emerald">+{fmt(lastRound.payout)}</b> 코인 획득 (순이익{' '}
+                      <b className="text-emerald">+{fmt(lastRound.payout - lastRound.bet)}</b> 코인)
                     </>
                   ) : (
                     <>
-                      배팅 <b>{fmt(bet)}</b> 코인 전액 손실 (0.00배, 손실{' '}
-                      <b className="text-rose">-{fmt(bet)}</b> 코인)
+                      배팅 <b>{fmt(lastRound.bet)}</b> 코인 전액 손실 (0.00배, 손실{' '}
+                      <b className="text-rose">-{fmt(lastRound.bet)}</b> 코인)
                     </>
                   )}
                 </span>
