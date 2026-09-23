@@ -38,6 +38,7 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrame = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
   const raceRef = useRef<{
     id: string;
     bet: number;
@@ -49,6 +50,18 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
     progress: [number, number, number, number];
     speeds: [number, number, number, number];
   } | null>(null);
+
+  // Unmount auto-settle cleanup
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      const current = raceRef.current;
+      if (current && current.active) {
+        current.active = false;
+        void onSettle(current.id, current.winner, current.bet, current.chosenHorse).catch(() => {});
+      }
+    };
+  }, [onSettle]);
 
   // Particles for hoof sparks, dust, and victory confetti
   const particles = useRef<Array<{
@@ -386,7 +399,8 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
       };
 
       // Set timeout for race finish
-      setTimeout(() => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => {
         void finishRace(finalWinner);
       }, raceDuration * 1000);
     } catch (e) {
@@ -406,6 +420,10 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
 
   // Settle & Finish Race
   const finishRace = useCallback(async (finalWinner: number) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     const current = raceRef.current;
     if (!current || !current.active) return;
     current.active = false;

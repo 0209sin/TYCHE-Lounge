@@ -350,8 +350,13 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      const current = gameRef.current;
+      if (current && current.active && !current.cashedOut) {
+        current.active = false;
+        void onBust(current.id, current.crashPoint).catch(() => {});
+      }
     };
-  }, []);
+  }, [onBust]);
 
   const skipCrash = () => {
     const current = gameRef.current;

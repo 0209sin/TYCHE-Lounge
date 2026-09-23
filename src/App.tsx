@@ -288,6 +288,23 @@ export default function App() {
     }
   }, []);
 
+  // Auto-recover stale pending bets (older than 15s) so user never gets stuck
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const pending = profileRef.current.pending;
+      if (pending && pending.length > 0) {
+        const now = Date.now();
+        const hasStale = pending.some(b => now - b.created > 15000);
+        if (hasStale && activeWriter.current) {
+          void act({ type: 'recover' }).then(() => {
+            notify('미정산된 게임 코인을 자동으로 안전하게 환불해 드렸어요.');
+          }).catch(() => {});
+        }
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [act, notify]);
+
   const run = async (action: Action, message?: string) => {
     try {
       await act(action);
@@ -387,22 +404,34 @@ export default function App() {
     }
   };
 
-  const go = (next: Page) => {
-    if (next !== 'play' && next !== 'crash' && next !== 'race' && next !== 'penguin' && profileRef.current.pending.length) {
-      notify('진행 중인 게임이 끝난 뒤 이동할 수 있어요.');
-      return;
+  const go = async (next: Page) => {
+    if (next === page) return;
+
+    // If there were any unsettled/stuck pending bets, recover them safely instead of blocking navigation
+    if (profileRef.current.pending.length > 0) {
+      try {
+        await act({ type: 'recover' });
+        notify('이전 게임의 베팅 코인을 안전하게 정리/환불해 드렸어요.');
+      } catch {
+        /* ignore */
+      }
     }
+
     setPage(next);
     if (next === 'shop' || next === 'inventory') setFilter('all');
   };
 
   const exportSave = async () => {
-    if (p.pending.length) {
-      notify('진행 중인 게임이 끝난 뒤 백업해 주세요.');
-      return;
+    if (profileRef.current.pending.length > 0) {
+      try {
+        await act({ type: 'recover' });
+      } catch {
+        /* ignore */
+      }
     }
     try {
-      const encryptedJson = await encryptSaveData(p);
+      const currentProfile = profileRef.current;
+      const encryptedJson = await encryptSaveData(currentProfile);
       const blob = new Blob([encryptedJson], { type: 'application/json' });
       const url = URL.createObjectURL(blob),
         a = document.createElement('a');

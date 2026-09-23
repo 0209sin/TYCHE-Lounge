@@ -35,13 +35,23 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   const animFrame = useRef<number | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
 
+  const gameIdRef = useRef(gameId);
+  gameIdRef.current = gameId;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const betRef = useRef(bet);
+  betRef.current = bet;
+
   useEffect(() => {
     return () => {
       if (audioCtx.current && audioCtx.current.state !== 'closed') {
         void audioCtx.current.close().catch(() => {});
       }
+      if (gameIdRef.current && phaseRef.current !== 'idle' && phaseRef.current !== 'fallen' && phaseRef.current !== 'cashed_out') {
+        void onFall(gameIdRef.current, betRef.current).catch(() => {});
+      }
     };
-  }, []);
+  }, [onFall]);
 
   // Jump animation state
   const jumpState = useRef<{

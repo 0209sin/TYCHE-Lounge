@@ -58,13 +58,23 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
 
   const audioCtx = useRef<AudioContext | null>(null);
 
+  const gameActiveRef = useRef(gameActive);
+  gameActiveRef.current = gameActive;
+  const gameIdRef = useRef(gameId);
+  gameIdRef.current = gameId;
+  const betRef = useRef(bet);
+  betRef.current = bet;
+
   useEffect(() => {
     return () => {
       if (audioCtx.current && audioCtx.current.state !== 'closed') {
         void audioCtx.current.close().catch(() => {});
       }
+      if (gameActiveRef.current && gameIdRef.current) {
+        void onBust(gameIdRef.current, betRef.current).catch(() => {});
+      }
     };
-  }, []);
+  }, [onBust]);
 
   const maxDiamonds = 25 - mineCount;
   const userFoundCount = pickedIndices.size;
