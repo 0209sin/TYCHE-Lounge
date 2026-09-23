@@ -404,21 +404,23 @@ export default function App() {
     }
   };
 
-  const go = async (next: Page) => {
+  const go = (next: Page) => {
     if (next === page) return;
-
-    // If there were any unsettled/stuck pending bets, recover them safely instead of blocking navigation
-    if (profileRef.current.pending.length > 0) {
-      try {
-        await act({ type: 'recover' });
-        notify('이전 게임의 베팅 코인을 안전하게 정리/환불해 드렸어요.');
-      } catch {
-        /* ignore */
-      }
-    }
 
     setPage(next);
     if (next === 'shop' || next === 'inventory') setFilter('all');
+
+    // After unmounting current game, check if any unsettled pending bets remain and refund them safely
+    setTimeout(async () => {
+      if (profileRef.current.pending.length > 0) {
+        try {
+          await act({ type: 'recover' });
+          notify('이전 게임의 베팅 코인을 안전하게 정리/환불해 드렸어요.');
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 120);
   };
 
   const exportSave = async () => {

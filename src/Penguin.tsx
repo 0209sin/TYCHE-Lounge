@@ -48,16 +48,24 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   const betRef = useRef(bet);
   betRef.current = bet;
 
+  const currentStepRef = useRef(currentStep);
+  currentStepRef.current = currentStep;
+
   useEffect(() => {
     return () => {
       if (audioCtx.current && audioCtx.current.state !== 'closed') {
         void audioCtx.current.close().catch(() => {});
       }
       if (gameIdRef.current && phaseRef.current !== 'idle' && phaseRef.current !== 'fallen' && phaseRef.current !== 'cashed_out') {
-        void onFall(gameIdRef.current, betRef.current).catch(() => {});
+        if (currentStepRef.current > 0) {
+          // If already reached an ice floe, secure profits by auto-cashing out on exit!
+          const mult = STEPS[currentStepRef.current - 1].multiplier;
+          void onCashout(gameIdRef.current, mult, betRef.current).catch(() => {});
+        }
+        // If currentStep === 0, do not fall; App recover will safely refund the bet!
       }
     };
-  }, [onFall]);
+  }, [onCashout]);
 
   const changeBet = (newBet: number) => {
     if (phase === 'jumping' || (phase === 'landed' && currentStep > 0)) return;

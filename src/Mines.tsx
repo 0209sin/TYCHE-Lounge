@@ -74,6 +74,10 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
   gameIdRef.current = gameId;
   const betRef = useRef(bet);
   betRef.current = bet;
+  const activeMineCountRef = useRef(activeMineCount);
+  activeMineCountRef.current = activeMineCount;
+  const pickedIndicesRef = useRef(pickedIndices);
+  pickedIndicesRef.current = pickedIndices;
 
   useEffect(() => {
     return () => {
@@ -81,10 +85,16 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
         void audioCtx.current.close().catch(() => {});
       }
       if (gameActiveRef.current && gameIdRef.current) {
-        void onBust(gameIdRef.current, betRef.current).catch(() => {});
+        const found = pickedIndicesRef.current.size;
+        if (found > 0) {
+          // If diamonds were found, secure profits by auto-cashing out on exit!
+          const mult = getMinesMultiplier(activeMineCountRef.current, found);
+          void onCashout(gameIdRef.current, mult, betRef.current).catch(() => {});
+        }
+        // If 0 diamonds found, do not bust; App recover will safely refund the bet!
       }
     };
-  }, [onBust]);
+  }, [onCashout]);
 
   // When changing bet or mineCount after game over, reset the board for a fresh game
   const changeBet = (newBet: number) => {
