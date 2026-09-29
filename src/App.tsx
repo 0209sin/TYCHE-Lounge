@@ -48,6 +48,7 @@ import {
   DAILY_QUESTS,
   WEEKLY_QUESTS,
   ACHIEVEMENTS,
+  APP_VERSION,
   type Category,
   type Product,
   type LuckyBox,
@@ -507,7 +508,7 @@ export default function App() {
         <button className="brand" onClick={() => go('play')} aria-label="티케 라운지 홈">
           <Sparkles size={29} />
           <span>
-            TYCHE<span className="brand-sub">LOUNGE <span className="version-pill">v2.2</span></span>
+            TYCHE<span className="brand-sub">LOUNGE <span className="version-pill">{APP_VERSION}</span></span>
           </span>
         </button>
         <div className="nav-caption">GAMING LOUNGE</div>

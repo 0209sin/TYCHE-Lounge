@@ -17,18 +17,8 @@ import {
 import { BETS } from './catalog';
 import type { Profile } from './economy';
 
-export function getMinesMultiplier(mines: number, revealed: number): number {
-  if (revealed <= 0) return 1.0;
-  const maxDiamonds = 25 - mines;
-  if (revealed > maxDiamonds) return 0;
-  let prob = 1.0;
-  for (let i = 0; i < revealed; i++) {
-    prob *= (maxDiamonds - i) / (25 - i);
-  }
-  if (prob <= 0) return 0;
-  const raw = 0.97 / prob;
-  return Math.max(1.01, Math.floor(raw * 100) / 100);
-}
+import { getMinesMultiplier } from './gameMath.ts';
+export { getMinesMultiplier };
 
 type MinesProps = {
   profile: Profile;

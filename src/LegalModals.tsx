@@ -1,4 +1,5 @@
 import { ShieldCheck, Lock, FileText, Mail, Info, AlertTriangle } from 'lucide-react';
+import { APP_VERSION } from './catalog';
 
 export type LegalModalType = 'terms' | 'privacy' | 'about' | null;
 
@@ -9,7 +10,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
         <FileText size={22} style={{ color: '#6be4c4' }} />
         <div>
           <h3>티케 라운지 서비스 이용약관 (Terms of Service)</h3>
-          <p>최종 수정일: 2026년 9월 22일 · 버전: v2.2</p>
+          <p>최종 수정일: 2026년 9월 29일 · 버전: {APP_VERSION}</p>
         </div>
       </div>
 
@@ -117,7 +118,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
         <Info size={22} style={{ color: '#ffd15c' }} />
         <div>
           <h3>티케 라운지 서비스 소개 및 문의 (About & Contact)</h3>
-          <p>TYCHE LOUNGE · 버전: v2.2</p>
+          <p>TYCHE LOUNGE · 버전: {APP_VERSION}</p>
         </div>
       </div>
 

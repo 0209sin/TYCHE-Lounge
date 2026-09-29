@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {getDayKey, getWeekKey, initialProfile, reduceProfile, syncDailyAndWeekly, validateProfile} from '../src/economy.ts';
 import {computeProfileChecksum, decryptSaveData, encryptSaveData} from '../src/security.ts';
+import {generateCrashPoint, getMinesMultiplier} from '../src/gameMath.ts';
 test('a purchase and settlement preserve accounting; repeated settlement is idempotent',()=>{
  const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:100});assert.equal(p.balance,9900);
  const q=reduceProfile(p,{type:'settle',id:'a',slot:2});assert.equal(q.balance,10100);assert.equal(q.wagered,100);assert.equal(q.earned,200);assert.equal(q.rounds,1);
@@ -13,8 +14,9 @@ test('fractional multiplier pays whole coins and refund cannot be duplicated',()
  const r=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:500});const s=reduceProfile(r,{type:'recover'});assert.equal(s.balance,10000);assert.equal(reduceProfile(s,{type:'recover'}).balance,10000);assert.equal(reduceProfile(s,{type:'refund',id:'a'}).balance,10000);
 });
 test('old saves and backups retain 0.7x and 1x history after the balance update',()=>{
- const p=initialProfile();delete p.checksum;p.balance=9570;p.owned.push('ball-lime');p.equipped.ball='ball-lime';
+ const p=initialProfile();p.balance=9570;p.owned.push('ball-lime');p.equipped.ball='ball-lime';
  p.results=[{id:'legacy-07',bet:100,multiplier:.7,payout:70,time:1},{id:'legacy-1',bet:100,multiplier:1,payout:100,time:2},{id:'legacy-01',bet:100,multiplier:.1,payout:10,time:3}];
+ p.checksum=computeProfileChecksum(p);
  const restored=validateProfile(p,true);assert.equal(restored.balance,9570);assert.equal(restored.equipped.ball,'ball-lime');assert.deepEqual(restored.results,p.results);
 });
 test('10,000 coin bets settle correctly and amounts over the limit are rejected',()=>{
@@ -320,7 +322,6 @@ test('progressive achievements and claim_all batch collection', () => {
 
 test('high jackpot multiplier (> 1000x) and floor-based payout validate successfully', () => {
   const p = initialProfile();
-  delete p.checksum;
   p.best = 2231.84;
   p.results = [
     {
@@ -331,6 +332,7 @@ test('high jackpot multiplier (> 1000x) and floor-based payout validate successf
       time: 1700000000000,
     },
   ];
+  p.checksum = computeProfileChecksum(p);
   const validated = validateProfile(p, true);
   assert.equal(validated.best, 2231.84);
   assert.equal(validated.results[0].payout, 223184);
@@ -408,7 +410,7 @@ test('AES-GCM save export encrypts data and rejects tampered save file on import
   );
 });
 
-test('legacy unencrypted v1 backup imports seamlessly', async () => {
+test('legacy unencrypted v1 backup is rejected for anti-tamper security', async () => {
   const legacy = {
     app: 'tyche-lounge',
     exportedAt: '2023-01-01T00:00:00.000Z',
@@ -417,11 +419,62 @@ test('legacy unencrypted v1 backup imports seamlessly', async () => {
       balance: 15000,
     },
   };
-  delete (legacy.profile as Partial<typeof legacy.profile>).checksum;
+  await assert.rejects(
+    () => decryptSaveData(JSON.stringify(legacy), validateProfile),
+    /암호화된 공식 백업 파일/
+  );
+});
 
-  const restored = await decryptSaveData(JSON.stringify(legacy), validateProfile);
-  assert.equal(restored.balance, 15000);
-  assert.ok(restored.checksum); // Automatically upgraded with fresh checksum
+test('profile without checksum is caught and rejected as tampered', () => {
+  const p = initialProfile();
+  delete (p as Partial<typeof p>).checksum;
+  assert.throws(
+    () => validateProfile(p),
+    /로컬 저장소의 데이터가 변조되었습니다/
+  );
+});
+
+test('crash multiplier distribution rebalance increases 1.2x~1.5x early bust rate', () => {
+  // 1. Instant bust (r < 0.05 returns 1.00)
+  assert.equal(generateCrashPoint(0.01), 1.00);
+  assert.equal(generateCrashPoint(0.049), 1.00);
+
+  // 2. Just above instant bust: r = 0.05 -> 0.935 / (1 - 0.05) = 0.984 -> Math.max(1.01, ...) = 1.01
+  assert.equal(generateCrashPoint(0.05), 1.01);
+
+  // 3. Low multipliers (1.20x auto-cashout bust range)
+  // At r = 0.22: 0.935 / 0.78 = 1.198 -> 1.19 (< 1.20)
+  assert.ok(generateCrashPoint(0.22) < 1.20);
+  // At r = 0.35: 0.935 / 0.65 = 1.438 -> 1.43 (< 1.50)
+  assert.ok(generateCrashPoint(0.35) < 1.50);
+
+  // 4. Over 10,000 simulated rounds, verify that early bust (< 1.20x) is around 22%~25% and (< 1.50x) is around 38%~42%
+  let bustBelow120 = 0;
+  let bustBelow150 = 0;
+  const SIM_ROUNDS = 10000;
+  for (let i = 0; i < SIM_ROUNDS; i++) {
+    const pt = generateCrashPoint();
+    if (pt < 1.20) bustBelow120++;
+    if (pt < 1.50) bustBelow150++;
+  }
+  const rate120 = bustBelow120 / SIM_ROUNDS;
+  const rate150 = bustBelow150 / SIM_ROUNDS;
+  // Previously rate120 was ~19.6%; now it should be > 21%
+  assert.ok(rate120 >= 0.20 && rate120 <= 0.26, `Actual rate120: ${rate120}`);
+  // Previously rate150 was ~35.7%; now it should be > 36%
+  assert.ok(rate150 >= 0.36 && rate150 <= 0.44, `Actual rate150: ${rate150}`);
+});
+
+test('mines multiplier rebalance with 0.94 factor calculates correctly without capping jackpots', () => {
+  // 3 mines, 1 diamond revealed: prob = 22/25 = 0.88. raw = 0.94 / 0.88 = 1.068 -> 1.06
+  const m1 = getMinesMultiplier(3, 1);
+  assert.equal(m1, 1.06);
+
+  // High jackpot remains uncapped: 20 mines, 5 diamonds revealed
+  // prob = (5/25)*(4/24)*(3/23)*(2/22)*(1/21) = 1 / 53130
+  // raw = 0.94 * 53130 = 49942.2
+  const jackpot = getMinesMultiplier(20, 5);
+  assert.ok(jackpot > 40000, `Jackpot multiplier: ${jackpot}`);
 });
 
 test('bgm action toggles background music preference and persists across validation', () => {

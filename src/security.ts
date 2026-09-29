@@ -125,7 +125,7 @@ export function computeProfileChecksum(p: Partial<Profile>): string {
  * Verifies whether a profile has a valid, untampered checksum.
  */
 export function verifyProfileChecksum(p: Partial<Profile>): boolean {
-  if (!p.checksum) return true; // Legacy profile without checksum allowed on initial upgrade
+  if (!p.checksum) return false;
   return p.checksum === computeProfileChecksum(p);
 }
 
@@ -256,12 +256,9 @@ export async function decryptSaveData(
     }
   }
 
-  // Case 2: Legacy v1 unencrypted backup compatibility
+  // Case 2: Legacy unencrypted plaintext JSON is permanently disallowed for anti-tamper security
   if (parsed.app === 'tyche-lounge' || parsed.app === 'orbit-arcade') {
-    if (!parsed.profile) throw new Error('세이브 데이터가 존재하지 않습니다.');
-    const profile = validateFn(parsed.profile, true);
-    profile.checksum = computeProfileChecksum(profile);
-    return profile;
+    throw new Error('보안 강화를 위해 암호화된 공식 백업 파일(.json)만 불러올 수 있습니다. (구버전 평문 백업 차단)');
   }
 
   throw new Error('티케 라운지 백업 파일을 선택해 주세요.');

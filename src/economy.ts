@@ -525,7 +525,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
   const p = raw as Partial<Profile>;
   if (p.version !== 1) throw new Error('지원하지 않는 저장 버전입니다.');
 
-  if (p.checksum && !verifyProfileChecksum(p)) {
+  if (!verifyProfileChecksum(p)) {
     throw new Error('로컬 저장소의 데이터가 변조되었습니다.');
   }
 

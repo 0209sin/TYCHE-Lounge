@@ -14,13 +14,8 @@ type CrashProps = {
   onError: (msg: string) => void;
 };
 
-// Provably Fair standard curve with ~96.5% RTP and 3% instant bust
-function generateCrashPoint(): number {
-  const r = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-  if (r < 0.03) return 1.00;
-  const mult = 0.965 / (1 - r);
-  return Math.max(1.01, Math.min(1000, Math.floor(mult * 100) / 100));
-}
+import { generateCrashPoint } from './gameMath.ts';
+export { generateCrashPoint };
 
 export default function Crash({ profile, available, onStart, onCashout, onBust, onError }: CrashProps) {
   const [bet, setBet] = useState(100);
