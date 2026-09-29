@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Flame, Layers3, Minus, Plus, Rocket, ShieldCheck, Zap } from 'lucide-react';
 import { BETS } from './catalog';
 import type { Profile } from './economy';
+import { generateCrashPoint } from './gameMath.ts';
+
+export { generateCrashPoint };
 
 type Phase = 'idle' | 'flying' | 'crashed';
 
@@ -13,9 +16,6 @@ type CrashProps = {
   onBust: (id: string, crashPoint: number) => Promise<void>;
   onError: (msg: string) => void;
 };
-
-import { generateCrashPoint } from './gameMath.ts';
-export { generateCrashPoint };
 
 export default function Crash({ profile, available, onStart, onCashout, onBust, onError }: CrashProps) {
   const [bet, setBet] = useState(100);
@@ -342,16 +342,19 @@ export default function Crash({ profile, available, onStart, onCashout, onBust, 
     };
   }, [phase, mult, cashedOutAt]);
 
+  const onBustRef = useRef(onBust);
+  onBustRef.current = onBust;
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       const current = gameRef.current;
       if (current && current.active && !current.cashedOut) {
         current.active = false;
-        void onBust(current.id, current.crashPoint).catch(() => {});
+        void onBustRef.current(current.id, current.crashPoint).catch(() => {});
       }
     };
-  }, [onBust]);
+  }, []);
 
   const skipCrash = () => {
     const current = gameRef.current;

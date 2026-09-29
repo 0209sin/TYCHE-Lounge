@@ -51,6 +51,9 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
     speeds: [number, number, number, number];
   } | null>(null);
 
+  const onSettleRef = useRef(onSettle);
+  onSettleRef.current = onSettle;
+
   // Unmount auto-settle cleanup
   useEffect(() => {
     return () => {
@@ -58,10 +61,10 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
       const current = raceRef.current;
       if (current && current.active) {
         current.active = false;
-        void onSettle(current.id, current.winner, current.bet, current.chosenHorse).catch(() => {});
+        void onSettleRef.current(current.id, current.winner, current.bet, current.chosenHorse).catch(() => {});
       }
     };
-  }, [onSettle]);
+  }, []);
 
   // Particles for hoof sparks, dust, and victory confetti
   const particles = useRef<Array<{
