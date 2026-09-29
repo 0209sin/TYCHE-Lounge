@@ -47,10 +47,10 @@ export type SlotSymbol = {
 export const SLOT_SYMBOLS: SlotSymbol[] = [
   { id: '777', name: '777 럭키 세븐', icon: '🔥', color: '#ffd15c', weight: 1, payout3: 50.0 },
   { id: 'bar', name: '사이버 BAR', icon: '⚡', color: '#00f2fe', weight: 2, payout3: 40.0 },
-  { id: 'diamond', name: '네온 다이아', icon: '💎', color: '#6be4c4', weight: 2, payout3: 25.0 },
-  { id: 'bell', name: '네온 벨', icon: '🔔', color: '#ffcd69', weight: 3, payout3: 15.0 },
-  { id: 'grape', name: '네온 포도', icon: '🍇', color: '#b29bff', weight: 5, payout3: 8.0 },
-  { id: 'cherry', name: '네온 체리', icon: '🍒', color: '#ff3b80', weight: 4, payout3: 5.0 },
+  { id: 'diamond', name: '네온 다이아', icon: '💎', color: '#6be4c4', weight: 2, payout3: 20.0 },
+  { id: 'bell', name: '네온 벨', icon: '🔔', color: '#ffcd69', weight: 3, payout3: 12.0 },
+  { id: 'grape', name: '네온 포도', icon: '🍇', color: '#b29bff', weight: 5, payout3: 5.0 },
+  { id: 'cherry', name: '네온 체리', icon: '🍒', color: '#ff3b80', weight: 3, payout3: 5.0 },
 ];
 
 export const TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
@@ -106,8 +106,8 @@ export function evaluateSlotReels(reels: [number, number, number]): SlotSpinResu
   if (cherryCount === 1) {
     return {
       reels,
-      multiplier: 0.5,
-      winType: '체리 1개 적중 (0.5배 페이백)',
+      multiplier: 1.0,
+      winType: '체리 1개 적중 (본전 1.0배)',
       isJackpot: false,
     };
   }

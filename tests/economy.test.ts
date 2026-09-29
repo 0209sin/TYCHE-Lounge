@@ -497,12 +497,12 @@ test('bgm action toggles background music preference and persists across validat
 
 test('777 slot evaluation rules, payouts, and RTP balance work correctly', () => {
   // 1. Symbol matching verification
-  // 3 of a kind: 777 (50x), BAR (40x), Diamond (25x), Bell (15x), Grape (8x), Cherry (5x)
+  // 3 of a kind: 777 (50x), BAR (40x), Diamond (20x), Bell (12x), Grape (5x), Cherry (5x)
   assert.equal(evaluateSlotReels([0, 0, 0]).multiplier, 50.0);
   assert.equal(evaluateSlotReels([1, 1, 1]).multiplier, 40.0);
-  assert.equal(evaluateSlotReels([2, 2, 2]).multiplier, 25.0);
-  assert.equal(evaluateSlotReels([3, 3, 3]).multiplier, 15.0);
-  assert.equal(evaluateSlotReels([4, 4, 4]).multiplier, 8.0);
+  assert.equal(evaluateSlotReels([2, 2, 2]).multiplier, 20.0);
+  assert.equal(evaluateSlotReels([3, 3, 3]).multiplier, 12.0);
+  assert.equal(evaluateSlotReels([4, 4, 4]).multiplier, 5.0);
   assert.equal(evaluateSlotReels([5, 5, 5]).multiplier, 5.0);
 
   // 2 Cherries = 2.0x
@@ -510,10 +510,10 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
   assert.equal(evaluateSlotReels([1, 5, 5]).multiplier, 2.0);
   assert.equal(evaluateSlotReels([5, 3, 5]).multiplier, 2.0);
 
-  // 1 Cherry = 0.5x payback
-  assert.equal(evaluateSlotReels([5, 1, 2]).multiplier, 0.5);
-  assert.equal(evaluateSlotReels([3, 5, 4]).multiplier, 0.5);
-  assert.equal(evaluateSlotReels([0, 1, 5]).multiplier, 0.5);
+  // 1 Cherry = 1.0x (본전 100% 보장)
+  assert.equal(evaluateSlotReels([5, 1, 2]).multiplier, 1.0);
+  assert.equal(evaluateSlotReels([3, 5, 4]).multiplier, 1.0);
+  assert.equal(evaluateSlotReels([0, 1, 5]).multiplier, 1.0);
 
   // No match & No cherry = 0x
   assert.equal(evaluateSlotReels([0, 1, 2]).multiplier, 0);
@@ -521,24 +521,24 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
 
   // 2. Profile reduction & economy preservation
   let p = initialProfile();
-  // 1 Cherry spin (0.5x)
-  p = reduceProfile(p, { type: 'slots_spin', id: 's1', bet: 1000, reels: [5, 1, 2], multiplier: 0.5 });
-  assert.equal(p.balance, 9500); // 10000 - 1000 + 500
+  // 1 Cherry spin (1.0x 본전)
+  p = reduceProfile(p, { type: 'slots_spin', id: 's1', bet: 1000, reels: [5, 1, 2], multiplier: 1.0 });
+  assert.equal(p.balance, 10000); // 10000 - 1000 + 1000 = 10000
   assert.equal(p.rounds, 1);
   assert.equal(p.wagered, 1000);
-  assert.equal(p.earned, 500);
-  assert.equal(p.results[0].payout, 500);
+  assert.equal(p.earned, 1000);
+  assert.equal(p.results[0].payout, 1000);
 
   // 2 Cherries spin (2.0x)
   p = reduceProfile(p, { type: 'slots_spin', id: 's2', bet: 500, reels: [5, 5, 1], multiplier: 2.0 });
-  assert.equal(p.balance, 10000); // 9500 - 500 + 1000
+  assert.equal(p.balance, 10500); // 10000 - 500 + 1000
   assert.equal(p.rounds, 2);
   assert.equal(p.wagered, 1500);
-  assert.equal(p.earned, 1500);
+  assert.equal(p.earned, 2000);
 
   // 3x 777 Jackpot spin (50x)
   p = reduceProfile(p, { type: 'slots_spin', id: 's3', bet: 1000, reels: [0, 0, 0], multiplier: 50.0 });
-  assert.equal(p.balance, 59000); // 10000 - 1000 + 50000
+  assert.equal(p.balance, 59500); // 10500 - 1000 + 50000
   assert.equal(p.best, 50.0);
   assert.equal(p.results[0].payout, 50000);
 
@@ -549,7 +549,7 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
   // Overspending or invalid bet rejection
   assert.throws(() => reduceProfile(p, { type: 'slots_spin', id: 's4', bet: 999999, reels: [0, 0, 0], multiplier: 50 }));
 
-  // 3. Exact analytical RTP verification across all combinations (6x6x6 = 216 states)
+  // 3. Exact analytical RTP verification across all combinations (6x6x6 = 216 states, 16^3 = 4,096 ways)
   let exactTotalWays = 0;
   let exactTotalPayout = 0;
   let exactOneCherryWays = 0;
@@ -567,17 +567,17 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
       }
     }
   }
-  assert.equal(exactTotalWays, 17 * 17 * 17); // 4913
+  assert.equal(exactTotalWays, 16 * 16 * 16); // 4096
   const exactRTP = exactTotalPayout / exactTotalWays;
   const exactOneCherryRate = exactOneCherryWays / exactTotalWays;
   const exactBustRate = exactBustWays / exactTotalWays;
 
-  // Mathematically verified RTP: 4557 / 4913 = 92.7539...%
-  assert.ok(Math.abs(exactRTP - 0.9275) < 0.001, `Exact RTP: ${exactRTP}`);
-  // 1-Cherry rate: 2028 / 4913 = 41.278...%
-  assert.ok(Math.abs(exactOneCherryRate - 0.4128) < 0.001, `Exact 1-Cherry rate: ${exactOneCherryRate}`);
-  // Bust rate: 2028 / 4913 = 41.278...%
-  assert.ok(Math.abs(exactBustRate - 0.4128) < 0.001, `Exact Bust rate: ${exactBustRate}`);
+  // Mathematically verified RTP: 3837 / 4096 = 93.6767...%
+  assert.ok(Math.abs(exactRTP - 0.9368) < 0.001, `Exact RTP: ${exactRTP}`);
+  // 1-Cherry rate: 1521 / 4096 = 37.1337...%
+  assert.ok(Math.abs(exactOneCherryRate - 0.3713) < 0.001, `Exact 1-Cherry rate: ${exactOneCherryRate}`);
+  // Bust rate: 2028 / 4096 = 49.5117...%
+  assert.ok(Math.abs(exactBustRate - 0.4951) < 0.001, `Exact Bust rate: ${exactBustRate}`);
 
   // 4. Monte Carlo simulation of 10,000 spins (verify RNG generation matches expectations within tolerance)
   const SIM_SPINS = 10000;
@@ -592,8 +592,8 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
   const simOneCherryRate = simOneCherryCount / SIM_SPINS;
   const simBustRate = simBustCount / SIM_SPINS;
 
-  assert.ok(simOneCherryRate >= 0.38 && simOneCherryRate <= 0.45, `1 Cherry rate: ${simOneCherryRate}`);
-  assert.ok(simBustRate >= 0.38 && simBustRate <= 0.45, `Bust rate: ${simBustRate}`);
+  assert.ok(simOneCherryRate >= 0.34 && simOneCherryRate <= 0.41, `1 Cherry rate: ${simOneCherryRate}`);
+  assert.ok(simBustRate >= 0.46 && simBustRate <= 0.53, `Bust rate: ${simBustRate}`);
 });
 
 

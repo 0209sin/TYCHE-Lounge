@@ -409,7 +409,7 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
               <div className="prob-header-left">
                 <Sparkles size={18} className="text-gold" />
                 <h3>🎰 당첨 확률 및 배당 안내표</h3>
-                <span className="rtp-badge">환급률(RTP) 92.75%</span>
+                <span className="rtp-badge">환급률(RTP) 93.68%</span>
               </div>
               <span className="provably-fair-tag">Provably Fair (수학적 공정 확률)</span>
             </div>
@@ -427,63 +427,63 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
                   <span className="sym-col">🎰 777</span>
                   <span>3개 일치 (메가 잭팟)</span>
                   <strong className="mult-col text-jackpot">50.0×</strong>
-                  <span className="rate-col">0.02% <small>(1/4,913)</small></span>
+                  <span className="rate-col">0.02% <small>(1/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row ${lastWin && lastWin.winType.includes('BAR') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🍫 BAR</span>
                   <span>3개 일치</span>
                   <strong className="mult-col text-gold">40.0×</strong>
-                  <span className="rate-col">0.16% <small>(8/4,913)</small></span>
+                  <span className="rate-col">0.20% <small>(8/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row ${lastWin && lastWin.winType.includes('다이아') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">💎 다이아몬드</span>
                   <span>3개 일치</span>
-                  <strong className="mult-col text-gold">25.0×</strong>
-                  <span className="rate-col">0.16% <small>(8/4,913)</small></span>
+                  <strong className="mult-col text-gold">20.0×</strong>
+                  <span className="rate-col">0.20% <small>(8/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row ${lastWin && lastWin.winType.includes('종') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🔔 황금 종</span>
                   <span>3개 일치</span>
-                  <strong className="mult-col">15.0×</strong>
-                  <span className="rate-col">0.55% <small>(27/4,913)</small></span>
+                  <strong className="mult-col">12.0×</strong>
+                  <span className="rate-col">0.66% <small>(27/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row ${lastWin && lastWin.winType.includes('포도') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🍇 네온 포도</span>
                   <span>3개 일치</span>
-                  <strong className="mult-col">8.0×</strong>
-                  <span className="rate-col">2.54% <small>(125/4,913)</small></span>
+                  <strong className="mult-col">5.0×</strong>
+                  <span className="rate-col">3.05% <small>(125/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row ${lastWin && lastWin.winType.includes('3체리') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🍒 체리 3개</span>
                   <span>3개 일치</span>
                   <strong className="mult-col">5.0×</strong>
-                  <span className="rate-col">1.30% <small>(64/4,913)</small></span>
+                  <span className="rate-col">0.66% <small>(27/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row highlight-row ${lastWin && lastWin.winType.includes('2체리') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🍒🍒 체리 2개</span>
                   <span>위치 무관 2개 일치</span>
                   <strong className="mult-col text-win">2.0×</strong>
-                  <span className="rate-col">12.70% <small>(624/4,913)</small></span>
+                  <span className="rate-col">8.57% <small>(351/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row highlight-row ${lastWin && lastWin.winType.includes('1체리') && !spinning ? 'current-win' : ''}`}>
                   <span className="sym-col">🍒 체리 1개</span>
-                  <span>어느 위치든 1개만 (절반 페이백)</span>
-                  <strong className="mult-col text-partial">0.5×</strong>
-                  <span className="rate-col text-partial font-bold">41.28% <small>(2,028/4,913)</small></span>
+                  <span>어느 위치든 1개만 (본전 100% 회수)</span>
+                  <strong className="mult-col text-win font-bold">1.0×</strong>
+                  <span className="rate-col text-win font-bold">37.13% <small>(1,521/4,096)</small></span>
                 </div>
 
                 <div className={`prob-row bust-row ${lastWin && lastWin.multiplier === 0 && !spinning ? 'current-bust' : ''}`}>
                   <span className="sym-col">💀 꽝 (낙첨)</span>
                   <span>일치 없음 & 체리 없음</span>
                   <strong className="mult-col text-dim">0.0×</strong>
-                  <span className="rate-col text-dim">41.28% <small>(2,028/4,913)</small></span>
+                  <span className="rate-col text-dim">49.51% <small>(2,028/4,096)</small></span>
                 </div>
               </div>
 
@@ -491,14 +491,14 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
                 <div className="tip-box">
                   <span className="tip-icon">🍒</span>
                   <div>
-                    <strong>높은 생존력의 체리 페이백 (총 당첨 확률 58.72%)</strong>
-                    <p>전체 스핀 중 <b>58.72%</b> 확률(체리 1개 41.3% + 체리 2개 12.7% + 3개 일치 4.7%)로 배당 또는 페이백이 지급되어 코인이 급격히 줄어들지 않고 오래 즐길 수 있습니다.</p>
+                    <strong>체리 1개 본전 보장 (총 당첨/본전 회수율 50.49%)</strong>
+                    <p>전체 스핀 중 <b>50.49%</b> 확률(체리 1개 본전 37.1% + 체리 2개 8.6% + 3개 일치 4.8%)로 배당 또는 본전이 100% 회수되어 코인을 안전하게 지키며 오래 즐길 수 있습니다.</p>
                   </div>
                 </div>
                 <div className="tip-box">
                   <span className="tip-icon">⚖️</span>
                   <div>
-                    <strong>하우스 엣지 7.25% (RTP 92.75%)</strong>
+                    <strong>하우스 엣지 6.32% (RTP 93.68%)</strong>
                     <p>모든 스핀은 조작 없는 수학적 가중치 알고리즘으로 독립 추첨되며 장기 경제 밸런스를 지켜줍니다.</p>
                   </div>
                 </div>
@@ -664,7 +664,7 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
 
           <div className="slot-guide-note">
             <ShieldCheck size={14} />
-            <span>체리가 1개만 나와도 50% 페이백! 777 일치 시 50배 대박 잭팟!</span>
+            <span>체리가 1개만 나와도 본전(1배) 100% 회수! 777 일치 시 50배 대박 잭팟!</span>
           </div>
         </aside>
       </div>
