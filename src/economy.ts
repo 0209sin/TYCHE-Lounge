@@ -121,6 +121,7 @@ export type Action =
   | {type:'mines_start'; id:string; bet:number; mineCount:number}
   | {type:'mines_cashout'; id:string; multiplier:number}
   | {type:'mines_bust'; id:string}
+  | {type:'slots_spin'; id:string; bet:number; reels:[number, number, number]; multiplier:number}
   | {type:'claim_all'};
 
 export function syncDailyAndWeekly(p: Profile, now: number) {
@@ -470,6 +471,23 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       p.wagered += b.bet;
       recordRoundProgress(p, 0, now);
       p.results = [{ id: b.id, bet: b.bet, multiplier: 0, payout: 0, time: now }, ...p.results].slice(0, 30);
+      break;
+    }
+
+    case 'slots_spin': {
+      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (typeof action.multiplier !== 'number' || !Number.isFinite(action.multiplier) || action.multiplier < 0) {
+        throw new Error('올바른 배율이 아닙니다.');
+      }
+      p.balance -= action.bet;
+      const payout = Math.floor(action.bet * action.multiplier);
+      p.balance += payout;
+      p.rounds++;
+      p.wagered += action.bet;
+      p.earned += payout;
+      p.best = Math.max(p.best, action.multiplier);
+      recordRoundProgress(p, action.multiplier, now);
+      p.results = [{ id: action.id, bet: action.bet, multiplier: action.multiplier, payout, time: now }, ...p.results].slice(0, 30);
       break;
     }
 

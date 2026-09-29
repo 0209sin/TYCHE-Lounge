@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {getDayKey, getWeekKey, initialProfile, reduceProfile, syncDailyAndWeekly, validateProfile} from '../src/economy.ts';
 import {computeProfileChecksum, decryptSaveData, encryptSaveData} from '../src/security.ts';
-import {generateCrashPoint, getMinesMultiplier} from '../src/gameMath.ts';
+import {generateCrashPoint, getMinesMultiplier, evaluateSlotReels, spinSlots, SLOT_SYMBOLS} from '../src/gameMath.ts';
 test('a purchase and settlement preserve accounting; repeated settlement is idempotent',()=>{
  const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:100});assert.equal(p.balance,9900);
  const q=reduceProfile(p,{type:'settle',id:'a',slot:2});assert.equal(q.balance,10100);assert.equal(q.wagered,100);assert.equal(q.earned,200);assert.equal(q.rounds,1);
@@ -494,4 +494,106 @@ test('bgm action toggles background music preference and persists across validat
   assert.equal(p.bgm, false);
   assert.equal(validateProfile(p).bgm, false);
 });
+
+test('777 slot evaluation rules, payouts, and RTP balance work correctly', () => {
+  // 1. Symbol matching verification
+  // 3 of a kind: 777 (50x), BAR (40x), Diamond (25x), Bell (15x), Grape (8x), Cherry (5x)
+  assert.equal(evaluateSlotReels([0, 0, 0]).multiplier, 50.0);
+  assert.equal(evaluateSlotReels([1, 1, 1]).multiplier, 40.0);
+  assert.equal(evaluateSlotReels([2, 2, 2]).multiplier, 25.0);
+  assert.equal(evaluateSlotReels([3, 3, 3]).multiplier, 15.0);
+  assert.equal(evaluateSlotReels([4, 4, 4]).multiplier, 8.0);
+  assert.equal(evaluateSlotReels([5, 5, 5]).multiplier, 5.0);
+
+  // 2 Cherries = 2.0x
+  assert.equal(evaluateSlotReels([5, 5, 0]).multiplier, 2.0);
+  assert.equal(evaluateSlotReels([1, 5, 5]).multiplier, 2.0);
+  assert.equal(evaluateSlotReels([5, 3, 5]).multiplier, 2.0);
+
+  // 1 Cherry = 0.5x payback
+  assert.equal(evaluateSlotReels([5, 1, 2]).multiplier, 0.5);
+  assert.equal(evaluateSlotReels([3, 5, 4]).multiplier, 0.5);
+  assert.equal(evaluateSlotReels([0, 1, 5]).multiplier, 0.5);
+
+  // No match & No cherry = 0x
+  assert.equal(evaluateSlotReels([0, 1, 2]).multiplier, 0);
+  assert.equal(evaluateSlotReels([3, 4, 1]).multiplier, 0);
+
+  // 2. Profile reduction & economy preservation
+  let p = initialProfile();
+  // 1 Cherry spin (0.5x)
+  p = reduceProfile(p, { type: 'slots_spin', id: 's1', bet: 1000, reels: [5, 1, 2], multiplier: 0.5 });
+  assert.equal(p.balance, 9500); // 10000 - 1000 + 500
+  assert.equal(p.rounds, 1);
+  assert.equal(p.wagered, 1000);
+  assert.equal(p.earned, 500);
+  assert.equal(p.results[0].payout, 500);
+
+  // 2 Cherries spin (2.0x)
+  p = reduceProfile(p, { type: 'slots_spin', id: 's2', bet: 500, reels: [5, 5, 1], multiplier: 2.0 });
+  assert.equal(p.balance, 10000); // 9500 - 500 + 1000
+  assert.equal(p.rounds, 2);
+  assert.equal(p.wagered, 1500);
+  assert.equal(p.earned, 1500);
+
+  // 3x 777 Jackpot spin (50x)
+  p = reduceProfile(p, { type: 'slots_spin', id: 's3', bet: 1000, reels: [0, 0, 0], multiplier: 50.0 });
+  assert.equal(p.balance, 59000); // 10000 - 1000 + 50000
+  assert.equal(p.best, 50.0);
+  assert.equal(p.results[0].payout, 50000);
+
+  // Validate profile checksum and structure
+  const saved = validateProfile(p, true);
+  assert.deepEqual(saved, p);
+
+  // Overspending or invalid bet rejection
+  assert.throws(() => reduceProfile(p, { type: 'slots_spin', id: 's4', bet: 999999, reels: [0, 0, 0], multiplier: 50 }));
+
+  // 3. Exact analytical RTP verification across all combinations (6x6x6 = 216 states)
+  let exactTotalWays = 0;
+  let exactTotalPayout = 0;
+  let exactOneCherryWays = 0;
+  let exactBustWays = 0;
+  for (let i = 0; i < SLOT_SYMBOLS.length; i++) {
+    for (let j = 0; j < SLOT_SYMBOLS.length; j++) {
+      for (let k = 0; k < SLOT_SYMBOLS.length; k++) {
+        const ways = SLOT_SYMBOLS[i].weight * SLOT_SYMBOLS[j].weight * SLOT_SYMBOLS[k].weight;
+        exactTotalWays += ways;
+        const evalResult = evaluateSlotReels([i, j, k]);
+        exactTotalPayout += ways * evalResult.multiplier;
+        const cherries = [i, j, k].filter(x => x === 5).length;
+        if (cherries === 1) exactOneCherryWays += ways;
+        if (evalResult.multiplier === 0) exactBustWays += ways;
+      }
+    }
+  }
+  assert.equal(exactTotalWays, 17 * 17 * 17); // 4913
+  const exactRTP = exactTotalPayout / exactTotalWays;
+  const exactOneCherryRate = exactOneCherryWays / exactTotalWays;
+  const exactBustRate = exactBustWays / exactTotalWays;
+
+  // Mathematically verified RTP: 4557 / 4913 = 92.7539...%
+  assert.ok(Math.abs(exactRTP - 0.9275) < 0.001, `Exact RTP: ${exactRTP}`);
+  // 1-Cherry rate: 2028 / 4913 = 41.278...%
+  assert.ok(Math.abs(exactOneCherryRate - 0.4128) < 0.001, `Exact 1-Cherry rate: ${exactOneCherryRate}`);
+  // Bust rate: 2028 / 4913 = 41.278...%
+  assert.ok(Math.abs(exactBustRate - 0.4128) < 0.001, `Exact Bust rate: ${exactBustRate}`);
+
+  // 4. Monte Carlo simulation of 10,000 spins (verify RNG generation matches expectations within tolerance)
+  const SIM_SPINS = 10000;
+  let simOneCherryCount = 0;
+  let simBustCount = 0;
+  for (let i = 0; i < SIM_SPINS; i++) {
+    const outcome = spinSlots();
+    const cherryCount = outcome.reels.filter(r => r === 5).length;
+    if (cherryCount === 1) simOneCherryCount++;
+    if (outcome.multiplier === 0) simBustCount++;
+  }
+  const simOneCherryRate = simOneCherryCount / SIM_SPINS;
+  const simBustRate = simBustCount / SIM_SPINS;
+
+  assert.ok(simOneCherryRate >= 0.38 && simOneCherryRate <= 0.45, `1 Cherry rate: ${simOneCherryRate}`);
+  assert.ok(simBustRate >= 0.38 && simBustRate <= 0.45, `Bust rate: ${simBustRate}`);
+});
+
 

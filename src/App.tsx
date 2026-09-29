@@ -64,10 +64,11 @@ import Crash from './Crash';
 import Race from './Race';
 import Penguin from './Penguin';
 import Mines from './Mines';
+import Slots from './Slots';
 import DailyWheel from './DailyWheel';
 import { TermsModal, PrivacyModal, AboutModal, type LegalModalType } from './LegalModals';
 
-type Page = 'play' | 'crash' | 'race' | 'penguin' | 'mines' | 'games' | 'shop' | 'inventory' | 'missions' | 'settings';
+type Page = 'play' | 'crash' | 'race' | 'penguin' | 'mines' | 'slots' | 'games' | 'shop' | 'inventory' | 'missions' | 'settings';
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 const signed = (n: number) => `${n > 0 ? '+' : ''}${fmt(n)}`;
 
@@ -478,6 +479,7 @@ export default function App() {
     { page: 'race' as Page, label: '네온 경마', icon: Trophy, tag: '03' },
     { page: 'penguin' as Page, label: '펭귄 점프', icon: Footprints, tag: '04' },
     { page: 'mines' as Page, label: '다이아 찾기', icon: Bomb, tag: '05' },
+    { page: 'slots' as Page, label: '777 슬롯', icon: Sparkles, tag: '06' },
     { page: 'games' as Page, label: '게임 라운지', icon: Grid2X2 },
     { page: 'shop' as Page, label: '상점', icon: ShoppingBag },
     { page: 'inventory' as Page, label: '보관함', icon: Package },
@@ -495,6 +497,7 @@ export default function App() {
     race: ['네온 경마', '4마리의 질주, 1등마를 맞히면 3배 지급!'],
     penguin: ['네온 펭귄 점프', '7개의 얼음길, 언제 멈출지는 당신의 선택.'],
     mines: ['다이아 찾기', '폭탄을 피해 다이아를 찾고, 원하는 순간 코인을 탈출하세요.'],
+    slots: ['777 네온 슬롯', '3개의 네온 릴이 돌아가는 순간, 777 대박을 노리세요.'],
     games: ['게임 라운지', '오늘은 어떤 게임을 즐겨볼까요?'],
     shop: ['상점 및 럭키 박스', '모은 코인으로 스킨을 구매하거나 대박 상자를 열어보세요.'],
     inventory: ['내 보관함', '보유 중인 스킨과 칭호를 장착해 보세요.'],
@@ -668,6 +671,8 @@ export default function App() {
                   ? 'ICE FLOE STEP HOP'
                   : page === 'mines'
                   ? 'PROBABILITY GRID MINES'
+                  : page === 'slots'
+                  ? 'CYBERNETIC 777 SLOTS'
                   : 'TYCHE GAMING LOUNGE'}
               </span>
               <h1>
@@ -677,6 +682,7 @@ export default function App() {
                 {page === 'race' && <span className="title-chip">HORSE RACE</span>}
                 {page === 'penguin' && <span className="title-chip">PENGUIN JUMP</span>}
                 {page === 'mines' && <span className="title-chip">NEON MINES</span>}
+                {page === 'slots' && <span className="title-chip">777 SLOTS</span>}
               </h1>
               <p>{titles[page][1]}</p>
             </div>
@@ -934,6 +940,17 @@ export default function App() {
               onBust={async id => {
                 await act({ type: 'mines_bust', id });
                 notify('폭탄이 폭발하여 코인을 잃었습니다!');
+              }}
+              onError={msg => notify(msg)}
+            />
+          )}
+
+          {page === 'slots' && (
+            <Slots
+              profile={p}
+              available={available}
+              onSpin={async (id, betAmount, reels, multiplier) => {
+                await act({ type: 'slots_spin', id, bet: betAmount, reels, multiplier });
               }}
               onError={msg => notify(msg)}
             />
@@ -1213,6 +1230,16 @@ export default function App() {
                 <Bomb size={80} />
                 <h2>다이아 찾기</h2>
                 <p>폭탄을 피해 다이아를 찾고, 원하는 순간 코인을 캐시아웃!</p>
+                <span className="lounge-action">
+                  지금 플레이
+                  <ArrowRight size={19} />
+                </span>
+              </button>
+              <button className="lounge-card available" onClick={() => go('slots')}>
+                <span className="eyebrow">06 / AVAILABLE NOW</span>
+                <Sparkles size={80} />
+                <h2>777 네온 슬롯</h2>
+                <p>3릴 클래식 머신, 777 대박과 풍성한 체리 페이백!</p>
                 <span className="lounge-action">
                   지금 플레이
                   <ArrowRight size={19} />
@@ -1737,7 +1764,11 @@ export default function App() {
                 <p>25개의 타일 속에 숨겨진 폭탄을 피해 다이아몬드를 수집하세요. 언제든 원하는 순간 캐시아웃 버튼을 눌러 안전하게 코인을 챙길 수 있습니다.</p>
               </div>
               <div>
-                <b>🎁 06. 퀘스트 & 출석 룰렛 (Missions & Wheel)</b>
+                <b>🎰 06. 777 네온 슬롯 (Cyber Slots)</b>
+                <p>3개의 릴이 회전하여 일치하는 네온 심볼에 따라 최대 50배의 잭팟을 지급합니다. 체리가 1개만 나와도 절반(0.5배)을 페이백받아 오랜 시간 즐길 수 있습니다.</p>
+              </div>
+              <div>
+                <b>🎁 07. 퀘스트 & 출석 룰렛 (Missions & Wheel)</b>
                 <p>매일 오전 9시(KST)에 일일 퀘스트와 출석 체크가 갱신됩니다. 24시간마다 무료 행운 룰렛을 돌리고 업적 보상으로 대량의 코인을 획득하세요.</p>
               </div>
             </div>
