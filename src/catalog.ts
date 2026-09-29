@@ -82,7 +82,13 @@ export const LABELS: Record<Category, string> = {
 
 export const MULTIPLIERS = [20, 5, 2, 1.5, 0.5, 0.1, 0.5, 1.5, 2, 5, 20];
 export const HISTORICAL_MULTIPLIERS = [0.1, 0.4, 0.5, 0.7, 0.8, 1, 1.2, 1.5, 2, 5, 16, 20];
+export const MIN_BET = 10;
+export const MAX_BET = 100_000_000; // 1억 코인 상한 대폭 확장
 export const BETS = [10, 50, 100, 500, 1000, 2000, 5000, 10000];
+
+export function isValidBet(bet: unknown): bet is number {
+  return typeof bet === 'number' && Number.isInteger(bet) && bet >= MIN_BET && bet <= MAX_BET;
+}
 export const MISSIONS = [
  {id:'first10',target:10,reward:500,name:'가볍게 워밍업',description:'공 10개 떨어뜨리기'},
  {id:'first25',target:25,reward:750,name:'리듬을 타는 중',description:'공 25개 떨어뜨리기'},

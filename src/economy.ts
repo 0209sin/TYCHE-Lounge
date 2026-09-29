@@ -1,4 +1,4 @@
-import { BETS, CATALOG, MISSIONS, MULTIPLIERS, HISTORICAL_MULTIPLIERS, BOXES, TITLES, WHEEL_SLOTS, DAILY_QUESTS, WEEKLY_QUESTS, ACHIEVEMENTS, type Category, type BoxPrize, type Achievement } from './catalog.ts';
+import { isValidBet, CATALOG, MISSIONS, MULTIPLIERS, HISTORICAL_MULTIPLIERS, BOXES, TITLES, WHEEL_SLOTS, DAILY_QUESTS, WEEKLY_QUESTS, ACHIEVEMENTS, type Category, type BoxPrize, type Achievement } from './catalog.ts';
 import { computeProfileChecksum, verifyProfileChecksum } from './security.ts';
 
 export function isAchievementDone(ach: Achievement, p: Profile): boolean {
@@ -156,7 +156,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
 
   switch (action.type) {
     case 'drop':
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (p.pending.length >= 5) throw new Error('한 번에 공 5개까지 떨어뜨릴 수 있어요.');
       if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 공입니다.');
       p.balance -= action.bet;
@@ -183,7 +183,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
     }
 
     case 'crash_start': {
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (p.pending.length >= 5) throw new Error('진행 중인 게임이 있습니다.');
       if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 게임입니다.');
       p.balance -= action.bet;
@@ -222,7 +222,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
     }
 
     case 'race_start': {
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (p.pending.length >= 5) throw new Error('진행 중인 게임이 있습니다.');
       if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 게임입니다.');
       if (action.horseIndex < 0 || action.horseIndex > 3) throw new Error('올바른 말을 선택해 주세요.');
@@ -249,7 +249,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
     }
 
     case 'penguin_start': {
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (p.pending.length >= 5) throw new Error('진행 중인 게임이 있습니다.');
       if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 게임입니다.');
       p.balance -= action.bet;
@@ -435,7 +435,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       break;
 
     case 'mines_start': {
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (p.pending.length >= 5) throw new Error('진행 중인 게임이 있습니다.');
       if (p.pending.some(b => b.id === action.id)) throw new Error('이미 처리된 게임입니다.');
       if (action.mineCount < 1 || action.mineCount > 24) throw new Error('지뢰 개수를 확인해 주세요.');
@@ -475,7 +475,7 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
     }
 
     case 'slots_spin': {
-      if (!BETS.includes(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
+      if (!isValidBet(action.bet) || p.balance < action.bet) throw new Error('코인이 부족합니다.');
       if (typeof action.multiplier !== 'number' || !Number.isFinite(action.multiplier) || action.multiplier < 0) {
         throw new Error('올바른 배율이 아닙니다.');
       }
@@ -600,7 +600,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
         b &&
         typeof b.id === 'string' &&
         b.id.length < 100 &&
-        BETS.includes(b.bet) &&
+        isValidBet(b.bet) &&
         integer(b.created) &&
         (b.target === undefined || (typeof b.target === 'number' && b.target >= 0 && b.target <= 24))
     ) ||
@@ -619,7 +619,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
         r &&
         typeof r.id === 'string' &&
         r.id.length < 100 &&
-        BETS.includes(r.bet) &&
+        isValidBet(r.bet) &&
         typeof r.multiplier === 'number' &&
         Number.isFinite(r.multiplier) &&
         r.multiplier >= 0 &&

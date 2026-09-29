@@ -5,8 +5,6 @@ import {
   Coins,
   Gem,
   History,
-  Minus,
-  Plus,
   RefreshCw,
   ShieldCheck,
   TrendingDown,
@@ -14,7 +12,7 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
-import { BETS } from './catalog';
+import BetControl from './BetControl';
 import type { Profile } from './economy';
 
 import { getMinesMultiplier } from './gameMath.ts';
@@ -362,79 +360,14 @@ export default function Mines({ profile, available, onStart, onCashout, onBust, 
           </div>
 
           <div className="mines-input-group">
-            <label>배팅 코인</label>
-            <div className="bet-control">
-              <button
-                type="button"
-                disabled={gameActive || busy || bet === BETS[0]}
-                onClick={() => changeBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
-              >
-                <Minus size={16} />
-              </button>
-              <select
-                value={bet}
-                disabled={gameActive || busy}
-                onChange={e => changeBet(Number(e.target.value))}
-              >
-                {BETS.map(b => (
-                  <option key={b} value={b} disabled={b > profile.balance}>
-                    {fmt(b)} 코인 {b > profile.balance ? '(잔액 부족)' : ''}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={gameActive || busy || bet === BETS[BETS.length - 1] || BETS[BETS.indexOf(bet) + 1] > profile.balance}
-                onClick={() => changeBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
-              >
-                <Plus size={16} />
-              </button>
-              <div className="bet-quick-buttons">
-                <button
-                  type="button"
-                  disabled={gameActive || busy || bet <= BETS[0]}
-                  onClick={() => {
-                    const half = BETS.slice().reverse().find(b => b <= bet / 2) ?? BETS[0];
-                    changeBet(half);
-                  }}
-                >
-                  ½
-                </button>
-                <button
-                  type="button"
-                  disabled={gameActive || busy || !BETS.some(b => b >= bet * 2 && b <= profile.balance)}
-                  onClick={() => {
-                    const dbl = BETS.find(b => b >= bet * 2 && b <= profile.balance);
-                    if (dbl) changeBet(dbl);
-                  }}
-                >
-                  2×
-                </button>
-                <button
-                  type="button"
-                  disabled={gameActive || busy || profile.balance < BETS[0]}
-                  onClick={() => {
-                    const maxAffordable = BETS.slice().reverse().find(b => b <= profile.balance);
-                    if (maxAffordable) changeBet(maxAffordable);
-                  }}
-                >
-                  최대
-                </button>
-              </div>
-            </div>
-            <div className="bet-preset-chips">
-              {BETS.slice(0, 6).map(b => (
-                <button
-                  key={b}
-                  type="button"
-                  disabled={gameActive || busy || profile.balance < b}
-                  className={`bet-preset-btn ${bet === b ? 'active' : ''}`}
-                  onClick={() => changeBet(b)}
-                >
-                  {fmt(b)}
-                </button>
-              ))}
-            </div>
+            <BetControl
+              label="배팅 코인"
+              bet={bet}
+              onChangeBet={changeBet}
+              balance={profile.balance}
+              disabled={gameActive || busy}
+              quickPresets={[100, 500, 1000, 5000, 10000]}
+            />
           </div>
 
           <div className="mines-input-group">

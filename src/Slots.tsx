@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Layers3, Minus, Play, Plus, RefreshCw, ShieldCheck, Sparkles, Square, Zap } from 'lucide-react';
-import { BETS } from './catalog';
+import { Layers3, Play, RefreshCw, ShieldCheck, Sparkles, Square, Zap } from 'lucide-react';
+import BetControl from './BetControl';
 import type { Profile } from './economy';
 import { SLOT_SYMBOLS, spinSlots, type SlotSpinResult } from './gameMath';
 
@@ -509,51 +509,19 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
 
         {/* Right Sidebar: Betting Controls & History */}
         <aside className="slots-controls-sidebar">
-          {/* Bet Selector */}
+          {/* Bet Selector with direct input & MAX */}
           <div className="control-card">
             <div className="control-card-header">
               <h3>베팅 금액</h3>
+              <span className="bet-balance-hint">보유: {fmt(profile.balance)}</span>
             </div>
-
-            <div className="bet-control">
-              <button
-                type="button"
-                disabled={bet === BETS[0] || spinning}
-                onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
-              >
-                <Minus size={16} />
-              </button>
-              <select
-                value={bet}
-                disabled={spinning}
-                onChange={e => setBet(Number(e.target.value))}
-              >
-                {BETS.map(b => (
-                  <option key={b} value={b}>{fmt(b)} 코인</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={bet === BETS[BETS.length - 1] || spinning}
-                onClick={() => setBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-
-            <div className="quick-bets">
-              {[100, 500, 1000, 5000, 10000].map(b => (
-                <button
-                  key={b}
-                  type="button"
-                  disabled={spinning}
-                  className={bet === b ? 'selected' : ''}
-                  onClick={() => setBet(b)}
-                >
-                  {fmt(b)}
-                </button>
-              ))}
-            </div>
+            <BetControl
+              bet={bet}
+              onChangeBet={setBet}
+              balance={profile.balance}
+              disabled={spinning}
+              quickPresets={[100, 500, 1000, 5000, 10000]}
+            />
           </div>
 
           {/* Action Button: Spin or Stop Auto */}

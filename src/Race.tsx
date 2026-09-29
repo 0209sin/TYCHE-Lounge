@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FastForward, Layers3, Minus, Plus, ShieldCheck, Trophy } from 'lucide-react';
-import { BETS } from './catalog';
+import { FastForward, Layers3, ShieldCheck, Trophy } from 'lucide-react';
+import BetControl from './BetControl';
 import type { Profile } from './economy';
 
 export const HORSES = [
@@ -569,43 +569,17 @@ export default function Race({ profile, available, onStart, onSettle, onError }:
 
           {/* Bet Amount */}
           <div className="control-card">
-            <h3>베팅 금액</h3>
-            <div className="bet-control">
-              <button
-                disabled={bet === BETS[0] || phase === 'racing'}
-                onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
-              >
-                <Minus size={16} />
-              </button>
-              <select
-                value={bet}
-                disabled={phase === 'racing'}
-                onChange={e => setBet(Number(e.target.value))}
-              >
-                {BETS.map(b => (
-                  <option key={b} value={b}>{fmt(b)} 코인</option>
-                ))}
-              </select>
-              <button
-                disabled={bet === BETS[BETS.length - 1] || phase === 'racing'}
-                onClick={() => setBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
-              >
-                <Plus size={16} />
-              </button>
+            <div className="control-card-header">
+              <h3>베팅 금액</h3>
+              <span className="bet-balance-hint">보유: {fmt(profile.balance)}</span>
             </div>
-
-            <div className="quick-bets">
-              {[100, 1000, 5000, 10000].map(b => (
-                <button
-                  key={b}
-                  disabled={phase === 'racing'}
-                  className={bet === b ? 'selected' : ''}
-                  onClick={() => setBet(b)}
-                >
-                  {fmt(b)}
-                </button>
-              ))}
-            </div>
+            <BetControl
+              bet={bet}
+              onChangeBet={setBet}
+              balance={profile.balance}
+              disabled={phase === 'racing'}
+              quickPresets={[100, 1000, 5000, 10000]}
+            />
           </div>
 
           {/* Action Button: Start or Skip */}

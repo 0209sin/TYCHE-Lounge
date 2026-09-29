@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FastForward, Footprints, Layers3, Minus, Plus, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
-import { BETS } from './catalog';
+import { FastForward, Footprints, Layers3, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import BetControl from './BetControl';
 import type { Profile } from './economy';
 
 export const STEPS = [
@@ -863,43 +863,17 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
         <aside className="penguin-controls">
           {/* Bet Amount */}
           <div className="control-card">
-            <h3>베팅 금액</h3>
-            <div className="bet-control">
-              <button
-                disabled={bet === BETS[0] || phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onClick={() => changeBet(BETS[Math.max(0, BETS.indexOf(bet) - 1)])}
-              >
-                <Minus size={16} />
-              </button>
-              <select
-                value={bet}
-                disabled={phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onChange={e => changeBet(Number(e.target.value))}
-              >
-                {BETS.map(b => (
-                  <option key={b} value={b}>{fmt(b)} 코인</option>
-                ))}
-              </select>
-              <button
-                disabled={bet === BETS[BETS.length - 1] || phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                onClick={() => changeBet(BETS[Math.min(BETS.length - 1, BETS.indexOf(bet) + 1)])}
-              >
-                <Plus size={16} />
-              </button>
+            <div className="control-card-header">
+              <h3>베팅 금액</h3>
+              <span className="bet-balance-hint">보유: {fmt(profile.balance)}</span>
             </div>
-
-            <div className="quick-bets">
-              {[100, 1000, 5000, 10000].map(b => (
-                <button
-                  key={b}
-                  disabled={phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
-                  className={bet === b ? 'selected' : ''}
-                  onClick={() => changeBet(b)}
-                >
-                  {fmt(b)}
-                </button>
-              ))}
-            </div>
+            <BetControl
+              bet={bet}
+              onChangeBet={changeBet}
+              balance={profile.balance}
+              disabled={phase === 'jumping' || (phase === 'landed' && currentStep > 0)}
+              quickPresets={[100, 1000, 5000, 10000]}
+            />
           </div>
 
           {/* Game Action Buttons */}

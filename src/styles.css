@@ -1546,6 +1546,134 @@
   }
 }
 
+/* ========================================================
+   CUSTOM BET INPUT & DIRECT NUMBER CONTROLS
+   ======================================================== */
+.bet-input-component {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.bet-component-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.bet-control.custom-bet-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0d121c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 4px 6px;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bet-control.custom-bet-control button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.bet-control.custom-bet-control button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.bet-control.custom-bet-control button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.bet-input-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0 8px;
+  gap: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bet-input-wrapper:focus-within {
+  border-color: #ffd15c;
+  box-shadow: 0 0 10px rgba(255, 209, 92, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bet-custom-input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: right;
+  padding: 6px 0;
+  -moz-appearance: textfield;
+}
+
+.bet-custom-input::-webkit-outer-spin-button,
+.bet-custom-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bet-input-unit {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd15c;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.bet-max-chip {
+  padding: 0 10px !important;
+  width: auto !important;
+  height: 32px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  background: rgba(255, 209, 92, 0.12) !important;
+  border: 1px solid rgba(255, 209, 92, 0.35) !important;
+  color: #ffd15c !important;
+  border-radius: 6px !important;
+}
+
+.bet-max-chip:hover:not(:disabled) {
+  background: #ffd15c !important;
+  color: #080d16 !important;
+}
+
+.bet-balance-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
 
 
 

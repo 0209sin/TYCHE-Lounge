@@ -28,6 +28,26 @@ test('10,000 coin bets settle correctly and amounts over the limit are rejected'
  const saved=reduceProfile(p,{type:'settle',id:'max',slot:3});assert.deepEqual(validateProfile(saved,true),saved);
  assert.equal(validateProfile(p).pending[0].bet,10000);
 });
+test('arbitrary custom bet (e.g. 23,890) and higher bet limit up to 100,000,000 work properly', () => {
+ let p = initialProfile();
+ p.balance = 50000;
+ // Bet exact custom amount 23,890
+ p = reduceProfile(p, { type: 'slots_spin', id: 'c1', bet: 23890, multiplier: 2.0 });
+ assert.equal(p.balance, 50000 - 23890 + 23890 * 2);
+ assert.equal(p.wagered, 23890);
+ assert.equal(p.results[0].bet, 23890);
+ assert.deepEqual(validateProfile(p, true), p);
+
+ // High bet up to 10,000,000
+ p.balance = 20000000;
+ p = reduceProfile(p, { type: 'slots_spin', id: 'c2', bet: 10000000, multiplier: 1.0 });
+ assert.equal(p.balance, 20000000);
+ assert.equal(p.results[0].bet, 10000000);
+
+ // Amounts over 100,000,000 are rejected
+ p.balance = 500000000;
+ assert.throws(() => reduceProfile(p, { type: 'slots_spin', id: 'c3', bet: 100000001, multiplier: 1.0 }));
+});
 test('cannot overspend, duplicate a purchase, or equip unowned items',()=>{
  let p=initialProfile();p.balance=100;assert.throws(()=>reduceProfile(p,{type:'drop',id:'a',bet:500}));assert.throws(()=>reduceProfile(p,{type:'buy',id:'ball-lime'}));assert.throws(()=>reduceProfile(p,{type:'equip',id:'ball-lime'}));
  p=reduceProfile(initialProfile(),{type:'buy',id:'ball-lime'});assert.equal(p.balance,9500);assert.ok(p.owned.includes('ball-lime'));assert.throws(()=>reduceProfile(p,{type:'buy',id:'ball-lime'}));assert.equal(reduceProfile(p,{type:'equip',id:'ball-lime'}).equipped.ball,'ball-lime');
