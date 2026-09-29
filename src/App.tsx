@@ -575,7 +575,7 @@ export default function App() {
               {p.bgm ? <Music size={13} className="music-pulse" /> : <Music2 size={13} />}
               <span>{p.bgm ? 'BGM ON' : 'BGM OFF'}</span>
             </button>
-            <span className="topbar-version-badge">v2.2</span>
+            <span className="topbar-version-badge">{APP_VERSION}</span>
             <span className={`save-indicator ${saveError ? 'error' : ''}`}>
               <ShieldCheck size={14} />
               {saveError ? '저장 확인 필요' : !loaded ? '불러오는 중' : writer ? '기기에 저장됨' : '다른 탭 사용 중'}
@@ -1636,7 +1636,7 @@ export default function App() {
                 <div className="legal-brand">
                   <Sparkles size={16} />
                   <b>TYCHE LOUNGE</b>
-                  <span className="version-pill">v2.2</span>
+                  <span className="version-pill">{APP_VERSION}</span>
                 </div>
                 <p className="legal-disclaimer">
                   티케 라운지는 순수 오락용 무료 가상 아케이드 게임 서비스입니다. 본 사이트 내에서 제공되는 모든 코인 및 재화는 순수 가상 게임
