@@ -1,4 +1,4 @@
-export const APP_VERSION = 'v2.5';
+export const APP_VERSION = 'v3.0';
 export type Category = 'ball' | 'board' | 'trail' | 'rocket' | 'penguin';
 export type Product = {
  id: string;
