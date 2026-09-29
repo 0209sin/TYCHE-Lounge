@@ -1124,6 +1124,24 @@
   cursor: not-allowed;
 }
 
+.slot-spin-btn.auto-stop-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #991b1b 100%);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  animation: stopButtonPulse 1.4s infinite alternate ease-in-out;
+}
+
+.slot-spin-btn.auto-stop-btn:hover {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #b91c1c 100%);
+  box-shadow: 0 12px 30px rgba(239, 68, 68, 0.7);
+  filter: brightness(1.1);
+}
+
+@keyframes stopButtonPulse {
+  0% { transform: scale(1); box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4); }
+  100% { transform: scale(1.02); box-shadow: 0 12px 30px rgba(239, 68, 68, 0.7); }
+}
+
 .slot-spin-btn span {
   display: flex;
   flex-direction: column;
@@ -1186,6 +1204,27 @@
   border-color: #ffd15c;
   color: #ffd15c;
   font-weight: 900;
+}
+
+.auto-pill.active-stop-pill {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #fca5a5;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: stopPillBlink 1.2s infinite alternate;
+}
+
+.auto-pill.active-stop-pill:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+@keyframes stopPillBlink {
+  0% { opacity: 0.85; }
+  100% { opacity: 1; border-color: #f87171; }
 }
 
 .fast-toggle-btn {

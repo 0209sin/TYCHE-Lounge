@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Layers3, Minus, Play, Plus, RefreshCw, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { Layers3, Minus, Play, Plus, RefreshCw, ShieldCheck, Sparkles, Square, Zap } from 'lucide-react';
 import { BETS } from './catalog';
 import type { Profile } from './economy';
 import { SLOT_SYMBOLS, spinSlots, type SlotSpinResult } from './gameMath';
@@ -41,6 +41,7 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
 
   const audioCtx = useRef<AudioContext | null>(null);
   const tickTimerRef = useRef<number | null>(null);
+  const autoTimerRef = useRef<number | null>(null);
   const autoSpinRef = useRef(autoSpinCount);
   autoSpinRef.current = autoSpinCount;
   const spinningRef = useRef(spinning);
@@ -48,6 +49,15 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
 
   const onSpinRef = useRef(onSpin);
   onSpinRef.current = onSpin;
+
+  const handleStopAuto = useCallback(() => {
+    setAutoSpinCount(0);
+    autoSpinRef.current = 0;
+    if (autoTimerRef.current) {
+      clearTimeout(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+  }, []);
 
   // Sound effects synthesizer
   const playTone = useCallback((type: 'click' | 'tick' | 'reel_stop' | 'win' | 'jackpot') => {
@@ -135,6 +145,10 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
         clearInterval(tickTimerRef.current);
         tickTimerRef.current = null;
       }
+      if (autoTimerRef.current) {
+        clearTimeout(autoTimerRef.current);
+        autoTimerRef.current = null;
+      }
       if (audioCtx.current && audioCtx.current.state !== 'closed') {
         void audioCtx.current.close().catch(() => {});
       }
@@ -144,7 +158,7 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
   // Spin executor
   const executeSpin = useCallback(async () => {
     if (!available || spinningRef.current || profile.balance < bet) {
-      setAutoSpinCount(0);
+      handleStopAuto();
       return;
     }
 
@@ -220,7 +234,8 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
         // Auto Spin check
         if (autoSpinRef.current > 0) {
           setAutoSpinCount(prev => prev - 1);
-          setTimeout(() => {
+          if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+          autoTimerRef.current = window.setTimeout(() => {
             if (autoSpinRef.current > 0) {
               void executeSpin();
             }
@@ -232,23 +247,28 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
         clearInterval(tickTimerRef.current);
         tickTimerRef.current = null;
       }
+      if (autoTimerRef.current) {
+        clearTimeout(autoTimerRef.current);
+        autoTimerRef.current = null;
+      }
       setSpinning(false);
       setReelStates(prev => [
         { isSpinning: false, symbolIndex: prev[0].symbolIndex, isBounce: false },
         { isSpinning: false, symbolIndex: prev[1].symbolIndex, isBounce: false },
         { isSpinning: false, symbolIndex: prev[2].symbolIndex, isBounce: false },
       ]);
-      setAutoSpinCount(0);
+      handleStopAuto();
       onError(e instanceof Error ? e.message : '스핀 처리에 실패했습니다.');
     }
-  }, [available, bet, fastMode, onError, playTone, profile.balance]);
+  }, [available, bet, fastMode, handleStopAuto, onError, playTone, profile.balance]);
 
   const handleStartAuto = (count: number) => {
     if (autoSpinCount > 0) {
-      setAutoSpinCount(0);
+      handleStopAuto();
       return;
     }
     setAutoSpinCount(count);
+    autoSpinRef.current = count;
     if (!spinning) {
       void executeSpin();
     }
@@ -536,23 +556,37 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
             </div>
           </div>
 
-          {/* Action Button: Spin */}
-          <button
-            type="button"
-            className="slot-spin-btn"
-            disabled={!available || spinning || profile.balance < bet}
-            onClick={() => void executeSpin()}
-          >
-            <Play size={22} className="spin-play-icon" />
-            <span>
-              {spinning
-                ? '릴 회전 중...'
-                : profile.balance < bet
-                ? '코인이 부족해요'
-                : '스핀 (SPIN)'}
-              <small>{fmt(bet)} 코인 투입</small>
-            </span>
-          </button>
+          {/* Action Button: Spin or Stop Auto */}
+          {autoSpinCount > 0 ? (
+            <button
+              type="button"
+              className="slot-spin-btn auto-stop-btn"
+              onClick={handleStopAuto}
+            >
+              <Square size={20} className="spin-stop-icon" />
+              <span>
+                자동 스핀 정지 (STOP)
+                <small>남은 자동 회전: {autoSpinCount}회</small>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="slot-spin-btn"
+              disabled={!available || spinning || profile.balance < bet}
+              onClick={() => void executeSpin()}
+            >
+              <Play size={22} className="spin-play-icon" />
+              <span>
+                {spinning
+                  ? '릴 회전 중...'
+                  : profile.balance < bet
+                  ? '코인이 부족해요'
+                  : '스핀 (SPIN)'}
+                <small>{fmt(bet)} 코인 투입</small>
+              </span>
+            </button>
+          )}
 
           {/* Auto Spin & Speed Controls */}
           <div className="slot-extra-controls">
@@ -561,17 +595,28 @@ export default function Slots({ profile, available, onSpin, onError }: SlotsProp
                 <RefreshCw size={14} className={autoSpinCount > 0 ? 'spin' : ''} />
                 <span>자동 스핀:</span>
               </span>
-              {[10, 25, 50].map(cnt => (
+              {autoSpinCount > 0 ? (
                 <button
-                  key={cnt}
                   type="button"
-                  disabled={spinning && autoSpinCount === 0}
-                  className={`auto-pill ${autoSpinCount === cnt ? 'active' : ''}`}
-                  onClick={() => handleStartAuto(cnt)}
+                  className="auto-pill active-stop-pill"
+                  onClick={handleStopAuto}
                 >
-                  {autoSpinCount === cnt ? '정지' : `${cnt}회`}
+                  <Square size={11} />
+                  <span>정지 ({autoSpinCount}회)</span>
                 </button>
-              ))}
+              ) : (
+                [10, 25, 50].map(cnt => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    disabled={spinning}
+                    className="auto-pill"
+                    onClick={() => handleStartAuto(cnt)}
+                  >
+                    {cnt}회
+                  </button>
+                ))
+              )}
             </div>
 
             <button

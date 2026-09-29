@@ -1,4 +1,4 @@
-export const APP_VERSION = 'v3.0';
+export const APP_VERSION = 'v3.1';
 export type Category = 'ball' | 'board' | 'trail' | 'rocket' | 'penguin';
 export type Product = {
  id: string;
@@ -97,17 +97,24 @@ export const TITLES: Record<string, TitleInfo> = {
  '행운의 시작': { id:'t_silver_1', name:'행운의 시작', tier:'silver', color:'#b0bec5', desc:'실버 상자에서 피어난 작은 행운' },
  '초심자의 행운': { id:'t_silver_2', name:'초심자의 행운', tier:'silver', color:'#b0bec5', desc:'두려움 없이 도전하는 플레이어' },
  '작은 날갯짓': { id:'t_silver_3', name:'작은 날갯짓', tier:'silver', color:'#b0bec5', desc:'빙하를 향해 도약하는 아기 펭귄' },
+ '체리 블라썸': { id:'t_silver_cherry', name:'체리 블라썸', tier:'silver', color:'#ff3b80', desc:'체리의 은총으로 본전을 지켜내는 생존의 달인' },
+
  '트랙의 승부사': { id:'t_gold_1', name:'트랙의 승부사', tier:'gold', color:'#ffd15c', desc:'경마 트랙의 바람을 읽는 자' },
  '빙하 정복자': { id:'t_gold_2', name:'빙하 정복자', tier:'gold', color:'#ffd15c', desc:'깨지는 얼음 위에서도 여유로운 질주' },
  '확률의 마술사': { id:'t_gold_3', name:'확률의 마술사', tier:'gold', color:'#ffd15c', desc:'기댓값을 뛰어넘는 배짱' },
+ '잭팟 헌터': { id:'t_gold_hunter', name:'잭팟 헌터', tier:'gold', color:'#ffd15c', desc:'네온 릴의 대박을 쫓아 끝없이 회전하는 승부사' },
+
  '하이롤러': { id:'t_plat_1', name:'하이롤러', tier:'platinum', color:'#00f2fe', desc:'거침없이 고액을 배팅하는 큰손' },
  '티케의 사도': { id:'t_plat_2', name:'티케의 사도', tier:'platinum', color:'#00f2fe', desc:'행운의 여신의 가호를 받는 자' },
  '황금빛 질주': { id:'t_plat_3', name:'황금빛 질주', tier:'platinum', color:'#00f2fe', desc:'빛보다 빠르게 결승선을 통과하는 질주' },
  '백만장자': { id:'t_plat_4', name:'백만장자', tier:'platinum', color:'#00f2fe', desc:'부와 영예를 거머쥔 거물' },
+ '777의 지배자': { id:'t_plat_777', name:'777의 지배자', tier:'platinum', color:'#00f2fe', desc:'3개의 7이 나란히 멈추는 기적을 이뤄낸 자' },
+
  '티케의 총애': { id:'t_dia_1', name:'티케의 총애', tier:'diamond', color:'#ff3b80', desc:'행운의 여신이 직접 선택한 절대적 총애' },
  '불멸의 잭팟': { id:'t_dia_2', name:'불멸의 잭팟', tier:'diamond', color:'#ff3b80', desc:'기적을 현실로 만든 전설의 승리자' },
  '살아있는 전설': { id:'t_dia_3', name:'살아있는 전설', tier:'diamond', color:'#ff3b80', desc:'티케 라운지의 역사를 새로 쓴 자' },
  '신들의 연회': { id:'t_dia_4', name:'신들의 연회', tier:'diamond', color:'#ff3b80', desc:'신들과 어깨를 나란히 하는 최상위 VIP' },
+ '네온 카지노의 황제': { id:'t_dia_emperor', name:'네온 카지노의 황제', tier:'diamond', color:'#ff3b80', desc:'슬롯머신의 모든 레버와 잭팟을 장악한 라운지의 제왕' },
 };
 
 export type BoxPrize =
@@ -144,13 +151,14 @@ export const BOXES: LuckyBox[] = [
   border: '#b0bec5',
   description: '가볍게 행운을 시험해보는 실버 미스터리 상자',
   drops: [
-   { rate: 30.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'아쉽지만 상자가 텅 비어있었습니다... 다음 기회에!' } },
+   { rate: 27.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'아쉽지만 상자가 텅 비어있었습니다... 다음 기회에!' } },
    { rate: 2.0, prize: { type:'coins', amount:15000, name:'15,000 코인 (3배 잭팟!)' } },
    { rate: 17.0, prize: { type:'coins', amount:3000, name:'3,000 코인' } },
    { rate: 22.0, prize: { type:'coins', amount:1000, name:'1,000 코인' } },
    { rate: 3.0, prize: { type:'title', title:'행운의 시작', name:'[칭호] 행운의 시작' } },
    { rate: 3.0, prize: { type:'title', title:'초심자의 행운', name:'[칭호] 초심자의 행운' } },
    { rate: 3.0, prize: { type:'title', title:'작은 날갯짓', name:'[칭호] 작은 날갯짓' } },
+   { rate: 3.0, prize: { type:'title', title:'체리 블라썸', name:'[칭호] 체리 블라썸' } },
    { rate: 4.0, prize: { type:'skin', skinId:'ball-silver-comet', name:'실버 혜성 볼' } },
    { rate: 4.0, prize: { type:'skin', skinId:'board-silver-grid', name:'실버 매트릭스 보드' } },
    { rate: 4.0, prize: { type:'skin', skinId:'trail-silver-spark', name:'실버 스파크 트레일' } },
@@ -168,13 +176,14 @@ export const BOXES: LuckyBox[] = [
   border: '#ffd15c',
   description: '화려한 네온 스킨과 승부사의 칭호가 담긴 황금 상자',
   drops: [
-   { rate: 30.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'먼지만 가득한 빈 상자였습니다... 다음 기회에!' } },
+   { rate: 27.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'먼지만 가득한 빈 상자였습니다... 다음 기회에!' } },
    { rate: 2.0, prize: { type:'coins', amount:75000, name:'75,000 코인 (3배 잭팟!)' } },
    { rate: 19.0, prize: { type:'coins', amount:20000, name:'20,000 코인' } },
    { rate: 20.0, prize: { type:'coins', amount:5000, name:'5,000 코인' } },
    { rate: 3.0, prize: { type:'title', title:'트랙의 승부사', name:'[칭호] 트랙의 승부사' } },
    { rate: 3.0, prize: { type:'title', title:'빙하 정복자', name:'[칭호] 빙하 정복자' } },
    { rate: 3.0, prize: { type:'title', title:'확률의 마술사', name:'[칭호] 확률의 마술사' } },
+   { rate: 3.0, prize: { type:'title', title:'잭팟 헌터', name:'[칭호] 잭팟 헌터' } },
    { rate: 4.0, prize: { type:'skin', skinId:'ball-cyber', name:'사이버 네온 볼' } },
    { rate: 4.0, prize: { type:'skin', skinId:'board-cyberpunk', name:'사이버펑크 네온 보드' } },
    { rate: 4.0, prize: { type:'skin', skinId:'trail-neon', name:'네온 펄스 트레일' } },
@@ -192,7 +201,7 @@ export const BOXES: LuckyBox[] = [
   border: '#00f2fe',
   description: '전설급 갤럭시 스킨과 하이롤러 전용 백금 상자',
   drops: [
-   { rate: 30.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'상자가 허무하게 비어있었습니다... 행운을 재충전하세요!' } },
+   { rate: 27.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'상자가 허무하게 비어있었습니다... 행운을 재충전하세요!' } },
    { rate: 2.0, prize: { type:'coins', amount:300000, name:'300,000 코인 (3배 잭팟!)' } },
    { rate: 26.0, prize: { type:'coins', amount:80000, name:'80,000 코인' } },
    { rate: 15.0, prize: { type:'coins', amount:20000, name:'20,000 코인' } },
@@ -200,6 +209,7 @@ export const BOXES: LuckyBox[] = [
    { rate: 3.0, prize: { type:'title', title:'티케의 사도', name:'[칭호] 티케의 사도' } },
    { rate: 3.0, prize: { type:'title', title:'황금빛 질주', name:'[칭호] 황금빛 질주' } },
    { rate: 3.0, prize: { type:'title', title:'백만장자', name:'[칭호] 백만장자' } },
+   { rate: 3.0, prize: { type:'title', title:'777의 지배자', name:'[칭호] 777의 지배자' } },
    { rate: 3.0, prize: { type:'skin', skinId:'ball-plasma', name:'플라즈마 마젠타 볼' } },
    { rate: 3.0, prize: { type:'skin', skinId:'board-nebula', name:'황금 성운 보드' } },
    { rate: 3.0, prize: { type:'skin', skinId:'trail-lightning', name:'썬더 볼트 트레일' } },
@@ -217,7 +227,7 @@ export const BOXES: LuckyBox[] = [
   border: '#ff3b80',
   description: '신화급 티케 여신 컬렉션과 백만 코인 잭팟의 최고위 상자',
   drops: [
-   { rate: 30.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'티케의 여신이 잠시 눈을 감았습니다... 다음 상자에 기적이!' } },
+   { rate: 27.0, prize: { type:'dud', name:'꽝 (빈 상자)', message:'티케의 여신이 잠시 눈을 감았습니다... 다음 상자에 기적이!' } },
    { rate: 2.0, prize: { type:'coins', amount:1000000, name:'1,000,000 코인 (백만 코인 초대박!)' } },
    { rate: 26.0, prize: { type:'coins', amount:250000, name:'250,000 코인' } },
    { rate: 15.0, prize: { type:'coins', amount:50000, name:'50,000 코인' } },
@@ -225,6 +235,7 @@ export const BOXES: LuckyBox[] = [
    { rate: 3.0, prize: { type:'title', title:'불멸의 잭팟', name:'[칭호] 불멸의 잭팟' } },
    { rate: 3.0, prize: { type:'title', title:'살아있는 전설', name:'[칭호] 살아있는 전설' } },
    { rate: 3.0, prize: { type:'title', title:'신들의 연회', name:'[칭호] 신들의 연회' } },
+   { rate: 3.0, prize: { type:'title', title:'네온 카지노의 황제', name:'[칭호] 네온 카지노의 황제' } },
    { rate: 3.0, prize: { type:'skin', skinId:'ball-tyche', name:'티케의 눈물(순금)' } },
    { rate: 3.0, prize: { type:'skin', skinId:'board-pantheon', name:'티케 판테온 보드' } },
    { rate: 3.0, prize: { type:'skin', skinId:'trail-prism', name:'프리즘 스펙트럼 트레일' } },
@@ -321,6 +332,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'ach_mult_5x', name: '빅 윈 (Big Win)', description: '단일 게임 5배 이상 배율 적중', reward: 2000, category: 'jackpot', type: 'best', target: 5.0 },
   { id: 'ach_mult_10x', name: '메가 잭팟 (Mega Jackpot)', description: '단일 게임 10배 이상 배율 적중', reward: 5000, category: 'jackpot', type: 'best', target: 10.0 },
   { id: 'ach_mult_20x', name: '기적의 순간', description: '단일 게임 20배 이상 최고 배율 적중', reward: 15000, category: 'jackpot', type: 'best', target: 20.0 },
+  { id: 'ach_mult_40x', name: '황금 BAR의 무게', description: '단일 게임 40배 이상 배율 적중', reward: 10000, category: 'jackpot', type: 'best', target: 40.0 },
+  { id: 'ach_mult_50x', name: '777 잭팟의 전설', description: '단일 게임 50배 메가 잭팟 적중', reward: 20000, category: 'jackpot', type: 'best', target: 50.0 },
 
   // 5. 수집 업적
   { id: 'ach_owned_7', name: '스킨 매니아', description: '보유 스킨 7개 이상 수집', reward: 3000, category: 'collection', type: 'owned_skins', target: 7 },
