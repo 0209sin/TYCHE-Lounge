@@ -4,13 +4,13 @@ import BetControl from './BetControl';
 import type { Profile } from './economy';
 
 export const STEPS = [
-  { step: 1, multiplier: 1.3, rate: 0.55, name: '1단계' },
-  { step: 2, multiplier: 1.8, rate: 0.50, name: '2단계' },
-  { step: 3, multiplier: 2.5, rate: 0.45, name: '3단계' },
-  { step: 4, multiplier: 5.0, rate: 0.40, name: '4단계' },
-  { step: 5, multiplier: 10.0, rate: 0.35, name: '5단계' },
-  { step: 6, multiplier: 20.0, rate: 0.30, name: '6단계' },
-  { step: 7, multiplier: 50.0, rate: 0.25, name: '7단계 (골든 잭팟)' },
+  { step: 1, multiplier: 1.35, rate: 0.70, name: '1단계' },
+  { step: 2, multiplier: 2.25, rate: 0.60, name: '2단계' },
+  { step: 3, multiplier: 4.0,  rate: 0.55, name: '3단계' },
+  { step: 4, multiplier: 8.0,  rate: 0.50, name: '4단계' },
+  { step: 5, multiplier: 20.0, rate: 0.40, name: '5단계' },
+  { step: 6, multiplier: 50.0, rate: 0.35, name: '6단계' },
+  { step: 7, multiplier: 150.0, rate: 0.25, name: '7단계 (골든 잭팟)' },
 ] as const;
 
 type Phase = 'idle' | 'jumping' | 'landed' | 'fallen' | 'cashed_out';
@@ -729,16 +729,17 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
     }
   };
 
-  // Auto cashout for 50x 7th step
+  // Auto cashout for final step (150x 7th step)
   const triggerAutoJackpot = useCallback(async () => {
+    const finalMult = STEPS[STEPS.length - 1].multiplier;
     setPhase('cashed_out');
     setLastRound({
       bet: activeBet,
-      multiplier: 50.0,
-      payout: Math.round(activeBet * 50.0),
+      multiplier: finalMult,
+      payout: Math.round(activeBet * finalMult),
     });
     try {
-      await onCashout(gameId, 50.0, activeBet);
+      await onCashout(gameId, finalMult, activeBet);
     } catch (e) {
       onError(e instanceof Error ? e.message : '잭팟 정산 실패');
     }
@@ -754,7 +755,7 @@ export default function Penguin({ profile, available, onStart, onCashout, onFall
   };
 
   const currentMultiplier = currentStep > 0 ? STEPS[currentStep - 1].multiplier : 1.0;
-  const nextMultiplier = currentStep < 7 ? STEPS[currentStep].multiplier : 50.0;
+  const nextMultiplier = currentStep < 7 ? STEPS[currentStep].multiplier : STEPS[STEPS.length - 1].multiplier;
   const nextRatePercent = currentStep < 7 ? Math.round(STEPS[currentStep].rate * 100) : 0;
   const currentPayout = Math.round((phase === 'jumping' || currentStep > 0 ? activeBet : bet) * currentMultiplier);
 
