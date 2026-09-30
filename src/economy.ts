@@ -44,7 +44,17 @@ export type Profile = {
   weeklyKey: string;
   weeklyClaimed: string[];
   achievementsClaimed: string[];
+  usedCoupons: string[];
   checksum?: string;
+};
+
+export const COUPONS: Record<string, { id: string; reward: number; name: string; aliases: string[] }> = {
+  SHOW_ME_THE_MONEY: {
+    id: 'COUPON_SHOW_ME_THE_MONEY',
+    reward: 50_000,
+    name: 'show me the money (50,000 코인 지급)',
+    aliases: ['show me the money', 'showmethemoney', '쇼미더머니', 'show_me_the_money', 'show-me-the-money']
+  }
 };
 
 export const getDayKey = (time = Date.now()): string => new Date(time).toISOString().slice(0, 10);
@@ -85,6 +95,7 @@ export const initialProfile = (): Profile => {
     weeklyKey: getWeekKey(),
     weeklyClaimed: [],
     achievementsClaimed: [],
+    usedCoupons: [],
   };
   p.checksum = computeProfileChecksum(p);
   return p;
@@ -122,6 +133,7 @@ export type Action =
   | {type:'mines_cashout'; id:string; multiplier:number}
   | {type:'mines_bust'; id:string}
   | {type:'slots_spin'; id:string; bet:number; reels:[number, number, number]; multiplier:number}
+  | {type:'redeem_coupon'; code:string}
   | {type:'claim_all'};
 
 export function syncDailyAndWeekly(p: Profile, now: number) {
@@ -528,6 +540,34 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
       p.balance += totalReward;
       break;
     }
+
+    case 'redeem_coupon': {
+      const raw = typeof action.code === 'string' ? action.code : '';
+      const normalized = raw.toLowerCase().trim().replace(/[\s\-_]/g, '');
+      if (!normalized) throw new Error('쿠폰 또는 치트키 코드를 입력해 주세요.');
+
+      let foundCoupon: { id: string; reward: number; name: string } | null = null;
+      for (const c of Object.values(COUPONS)) {
+        if (c.aliases.some(a => a.toLowerCase().replace(/[\s\-_]/g, '') === normalized)) {
+          foundCoupon = c;
+          break;
+        }
+      }
+
+      if (!foundCoupon) {
+        throw new Error('존재하지 않거나 유효하지 않은 코드입니다.');
+      }
+
+      const alreadyUsed = Array.isArray(p.usedCoupons) && p.usedCoupons.includes(foundCoupon.id);
+      if (alreadyUsed) {
+        throw new Error('이미 사용된 쿠폰/치트키입니다. (계정당 1회만 사용 가능)');
+      }
+
+      if (!Array.isArray(p.usedCoupons)) p.usedCoupons = [];
+      p.balance += foundCoupon.reward;
+      p.usedCoupons.push(foundCoupon.id);
+      break;
+    }
   }
 
   if (!Number.isSafeInteger(p.balance) || p.balance < 0) throw new Error('잔액 범위를 벗어났습니다.');
@@ -656,6 +696,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
   const weeklyMaxMult = typeof p.weeklyMaxMult === 'number' && Number.isFinite(p.weeklyMaxMult) ? p.weeklyMaxMult : 0;
   const weeklyClaimed = Array.isArray(p.weeklyClaimed) ? Array.from(new Set(p.weeklyClaimed)) : [];
   const achievementsClaimed = Array.isArray(p.achievementsClaimed) ? Array.from(new Set(p.achievementsClaimed)) : [];
+  const usedCoupons = Array.isArray(p.usedCoupons) ? Array.from(new Set(p.usedCoupons)) : [];
 
   const validated: Profile = {
     version: 1,
@@ -692,6 +733,7 @@ export function validateProfile(raw: unknown, backup = false): Profile {
     weeklyKey,
     weeklyClaimed,
     achievementsClaimed,
+    usedCoupons,
   };
   validated.checksum = computeProfileChecksum(validated);
   return validated;

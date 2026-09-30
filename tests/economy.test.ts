@@ -616,4 +616,28 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
   assert.ok(simBustRate >= 0.46 && simBustRate <= 0.53, `Bust rate: ${simBustRate}`);
 });
 
+test('show me the money coupon grants 50,000 coins once and prevents reuse',()=>{
+  let p = initialProfile();
+  assert.equal(p.balance, 10000);
+  assert.deepEqual(p.usedCoupons, []);
+
+  // 1. Invalid code rejected
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'invalid_code' }));
+
+  // 2. Redeem 'show me the money'
+  p = reduceProfile(p, { type: 'redeem_coupon', code: 'show me the money' });
+  assert.equal(p.balance, 60000);
+  assert.ok(p.usedCoupons.includes('COUPON_SHOW_ME_THE_MONEY'));
+
+  // 3. Repeated redemption is rejected
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'showmethemoney' }));
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: '쇼미더머니' }));
+
+  // 4. Persistence validation
+  const saved = validateProfile(p, true);
+  assert.equal(saved.balance, 60000);
+  assert.ok(saved.usedCoupons.includes('COUPON_SHOW_ME_THE_MONEY'));
+});
+
+
 

@@ -179,6 +179,10 @@ export default function App() {
   const [imported, setImported] = useState<Profile | null>(null);
   const [resetText, setResetText] = useState('');
 
+  const [couponInput, setCouponInput] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const board = useRef<PlinkoHandle>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const activeWriter = useRef(false);
@@ -304,6 +308,54 @@ export default function App() {
     }, 4000);
     return () => clearInterval(interval);
   }, [act, notify]);
+
+  const handleRedeemCoupon = useCallback(async (codeOverride?: string) => {
+    const code = (codeOverride ?? couponInput).trim();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponMsg(null);
+    try {
+      await act({ type: 'redeem_coupon', code });
+      setCouponInput('');
+      setCouponMsg({ type: 'success', text: '🎉 [치트키 발동] 50,000 코인이 정상 지급되었습니다!' });
+      notify('🎉 [치트키 발동: show me the money] 50,000 코인이 충전되었습니다!');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '쿠폰 등록에 실패했습니다.';
+      setCouponMsg({ type: 'error', text: msg });
+      notify(msg);
+    } finally {
+      setCouponBusy(false);
+    }
+  }, [act, couponInput, notify]);
+
+  // Global Starcraft cheat code easter egg: Type 'show me the money' anywhere!
+  useEffect(() => {
+    let keyBuffer = '';
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (e.key.length === 1 || e.key === ' ' || e.key === 'Enter') {
+        if (e.key === 'Enter') {
+          const norm = keyBuffer.toLowerCase().replace(/[\s\-_]/g, '');
+          if (norm.includes('showmethemoney') || norm.includes('쇼미더머니')) {
+            keyBuffer = '';
+            void handleRedeemCoupon('show me the money');
+          }
+          return;
+        }
+        keyBuffer = (keyBuffer + e.key).slice(-35);
+        const norm = keyBuffer.toLowerCase().replace(/[\s\-_]/g, '');
+        if (norm.includes('showmethemoney') || norm.includes('쇼미더머니')) {
+          keyBuffer = '';
+          void handleRedeemCoupon('show me the money');
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleRedeemCoupon]);
 
   const run = async (action: Action, message?: string) => {
     try {
@@ -1582,6 +1634,54 @@ export default function App() {
                     지원받기
                   </button>
                 </div>
+              </section>
+
+              <section className="settings-card coupon-settings-card">
+                <div className="section-heading">
+                  <h2>시크릿 쿠폰 & 치트키</h2>
+                  <Gift size={21} />
+                </div>
+                <p>
+                  특별 프로모션 쿠폰이나 히든 치트키 코드를 입력해 보너스 코인을 수령하세요. (계정당 1회)
+                </p>
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleRedeemCoupon();
+                  }}
+                  className="coupon-form"
+                >
+                  <input
+                    type="text"
+                    placeholder="쿠폰 또는 치트키 입력 (예: show me the money)"
+                    value={couponInput}
+                    onChange={e => {
+                      setCouponInput(e.target.value);
+                      if (couponMsg) setCouponMsg(null);
+                    }}
+                    disabled={!available || couponBusy}
+                    className="coupon-input"
+                  />
+                  <button
+                    type="submit"
+                    className="primary-button coupon-submit-btn"
+                    disabled={!available || couponBusy || !couponInput.trim()}
+                  >
+                    {couponBusy ? '확인 중...' : '등록하기'}
+                  </button>
+                </form>
+                {couponMsg && (
+                  <div className={`coupon-feedback ${couponMsg.type}`}>
+                    {couponMsg.type === 'success' ? <Check size={16} /> : <Info size={16} />}
+                    <span>{couponMsg.text}</span>
+                  </div>
+                )}
+                {p.usedCoupons?.includes('COUPON_SHOW_ME_THE_MONEY') && (
+                  <div className="used-coupon-badge">
+                    <CheckCircle2 size={15} />
+                    <span>[show me the money] 50,000 코인 치트키 사용 완료</span>
+                  </div>
+                )}
               </section>
 
               <section className="settings-card danger-card">
