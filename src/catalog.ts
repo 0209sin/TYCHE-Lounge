@@ -80,8 +80,8 @@ export const LABELS: Record<Category, string> = {
  penguin: '펭귄 스킨',
 };
 
-export const MULTIPLIERS = [20, 5, 2, 1.5, 0.5, 0.1, 0.5, 1.5, 2, 5, 20];
-export const HISTORICAL_MULTIPLIERS = [0.1, 0.4, 0.5, 0.7, 0.8, 1, 1.2, 1.5, 2, 5, 16, 20];
+export const MULTIPLIERS = [20, 2.4, 1.2, 0.8, 0.4, 0.2, 0.4, 0.8, 1.2, 2.4, 20];
+export const HISTORICAL_MULTIPLIERS = [0.1, 0.2, 0.4, 0.5, 0.7, 0.8, 1, 1.2, 1.4, 1.5, 2, 2.4, 5, 16, 20];
 export const MIN_BET = 10;
 export const MAX_BET = 100_000_000; // 1억 코인 상한 대폭 확장
 export const BETS = [10, 50, 100, 500, 1000, 2000, 5000, 10000];

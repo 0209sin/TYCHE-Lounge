@@ -5,12 +5,12 @@ import {computeProfileChecksum, decryptSaveData, encryptSaveData} from '../src/s
 import {generateCrashPoint, getMinesMultiplier, evaluateSlotReels, spinSlots, SLOT_SYMBOLS} from '../src/gameMath.ts';
 test('a purchase and settlement preserve accounting; repeated settlement is idempotent',()=>{
  const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:100});assert.equal(p.balance,9900);
- const q=reduceProfile(p,{type:'settle',id:'a',slot:2});assert.equal(q.balance,10100);assert.equal(q.wagered,100);assert.equal(q.earned,200);assert.equal(q.rounds,1);
+ const q=reduceProfile(p,{type:'settle',id:'a',slot:2});assert.equal(q.balance,10020);assert.equal(q.wagered,100);assert.equal(q.earned,120);assert.equal(q.rounds,1);
  assert.deepEqual(reduceProfile(q,{type:'settle',id:'a',slot:2}),q);
 });
 test('fractional multiplier pays whole coins and refund cannot be duplicated',()=>{
- const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:10});const q=reduceProfile(p,{type:'settle',id:'a',slot:4});assert.equal(q.balance,9995);
- const center=reduceProfile(p,{type:'settle',id:'a',slot:5});assert.equal(center.balance,9991);
+ const p=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:10});const q=reduceProfile(p,{type:'settle',id:'a',slot:4});assert.equal(q.balance,9994);
+ const center=reduceProfile(p,{type:'settle',id:'a',slot:5});assert.equal(center.balance,9992);
  const r=reduceProfile(initialProfile(),{type:'drop',id:'a',bet:500});const s=reduceProfile(r,{type:'recover'});assert.equal(s.balance,10000);assert.equal(reduceProfile(s,{type:'recover'}).balance,10000);assert.equal(reduceProfile(s,{type:'refund',id:'a'}).balance,10000);
 });
 test('old saves and backups retain 0.7x and 1x history after the balance update',()=>{
@@ -21,8 +21,8 @@ test('old saves and backups retain 0.7x and 1x history after the balance update'
 });
 test('10,000 coin bets settle correctly and amounts over the limit are rejected',()=>{
  const p=reduceProfile(initialProfile(),{type:'drop',id:'max',bet:10000});assert.equal(p.balance,0);
- assert.equal(reduceProfile(p,{type:'settle',id:'max',slot:3}).balance,15000);
- assert.equal(reduceProfile(p,{type:'settle',id:'max',slot:5}).balance,1000);
+ assert.equal(reduceProfile(p,{type:'settle',id:'max',slot:3}).balance,8000);
+ assert.equal(reduceProfile(p,{type:'settle',id:'max',slot:5}).balance,2000);
  assert.equal(reduceProfile(p,{type:'settle',id:'max',slot:0}).balance,200000);
  assert.throws(()=>reduceProfile(initialProfile(),{type:'drop',id:'invalid',bet:10001}));
  const saved=reduceProfile(p,{type:'settle',id:'max',slot:3});assert.deepEqual(validateProfile(saved,true),saved);
@@ -233,9 +233,9 @@ test('daily wheel, attendance, daily/weekly quests, achievements, and bankruptcy
 
   // 3. Play rounds to advance daily & weekly stats
   p = reduceProfile(p, { type: 'drop', id: 'q1', bet: 100 }, now);
-  p = reduceProfile(p, { type: 'settle', id: 'q1', slot: 2 }, now); // multiplier 2x
+  p = reduceProfile(p, { type: 'settle', id: 'q1', slot: 1 }, now); // multiplier 2.4x
   assert.equal(p.dailyRounds, 1);
-  assert.equal(p.dailyMaxMult, 2.0);
+  assert.equal(p.dailyMaxMult, 2.4);
 
   // 4. Claim daily quest (dq_win2x: reward 800)
   p = reduceProfile(p, { type: 'daily_claim', questId: 'dq_win2x' }, now);

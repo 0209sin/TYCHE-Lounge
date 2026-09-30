@@ -23,7 +23,7 @@ export default forwardRef<PlinkoHandle,Props>(function Plinko({profile,onResult,
     for(const d of DEFLECTORS)this.matter.add.circle(d.x,d.y,d.r,deflectorOptions());
     for(const wall of WALLS)this.matter.add.rectangle(wall.x,wall.y,wall.width,wall.height,wallOptions());
     for(const divider of DIVIDERS)this.matter.add.rectangle(divider.x,divider.y,divider.width,divider.height,dividerOptions());
-    MULTIPLIERS.forEach((m,i)=>this.labels.push(this.add.text(120+i*42,493,`${m}×`,{fontFamily:'Arial, sans-serif',fontSize:'15px',fontStyle:'bold',color:m>=2?'#0b1016':'#e1e6f0'}).setOrigin(.5)));
+    MULTIPLIERS.forEach((m,i)=>this.labels.push(this.add.text(120+i*42,493,`${m}×`,{fontFamily:'Arial, sans-serif',fontSize:'13px',fontStyle:'bold',color:m>=2?'#0b1016':'#e1e6f0'}).setOrigin(.5)));
     controller.current=(id)=>{
      if(this.balls.size>=5)return false;
      const p=current.current.profile,item=CATALOG.find(x=>x.id===p.equipped.ball)!;
@@ -52,7 +52,7 @@ export default forwardRef<PlinkoHandle,Props>(function Plinko({profile,onResult,
     // Spawn guide and multiplier bins are part of the live board.
     g.lineStyle(1,0xffffff,.12);g.strokeCircle(330,24,12);g.fillStyle(0xffffff,.18);g.fillCircle(330,24,2);
     MULTIPLIERS.forEach((m,i)=>{
-     const color=m>=20?0xc4fa6b:m>=5?0x9ad96a:m>=2?0x6fa970:m>=1.5?0x3a5749:m>=0.5?0x2c3645:0x222a36;
+     const color=m>=20?0xc4fa6b:m>=2?0x9ad96a:m>=1.2?0x6fa970:m>=0.8?0x3a5749:m>=0.4?0x2c3645:0x222a36;
      const flash=this.flashes.get(i)??0;g.fillStyle(color,1);g.fillRoundedRect(101+i*42,475,38,36,6);
      if(flash>0){g.lineStyle(2,0xffffff,flash/500);g.strokeRoundedRect(101+i*42,475,38,36,6);this.flashes.set(i,Math.max(0,flash-elapsed));}
     });
