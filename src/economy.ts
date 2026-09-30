@@ -48,14 +48,24 @@ export type Profile = {
   checksum?: string;
 };
 
-export const COUPONS: Record<string, { id: string; reward: number; name: string; aliases: string[] }> = {
-  SHOW_ME_THE_MONEY: {
-    id: 'COUPON_SHOW_ME_THE_MONEY',
-    reward: 50_000,
-    name: 'show me the money (50,000 코인 지급)',
-    aliases: ['show me the money', 'showmethemoney', '쇼미더머니', 'show_me_the_money', 'show-me-the-money']
-  }
+export type Coupon = {
+  code: string;
+  reward: number;
+  name: string;
 };
+
+/**
+ * 티케 라운지 정식 쿠폰 목록
+ * 앞으로 새로운 쿠폰을 추가하실 때 여기에 { code: '코드', reward: 금액, name: '설명' } 형태로 추가하시면 됩니다.
+ * (영문 대소문자 및 한글이 정확히 일치해야 등록됩니다)
+ */
+export const COUPON_LIST: Coupon[] = [
+  {
+    code: 'dbsgh',
+    reward: 50_000,
+    name: '스페셜 쿠폰 [dbsgh] (50,000 코인)'
+  }
+];
 
 export const getDayKey = (time = Date.now()): string => new Date(time).toISOString().slice(0, 10);
 export const getWeekKey = (time = Date.now()): string => {
@@ -542,30 +552,23 @@ export function reduceProfile(previous: Profile, action: Action, now = Date.now(
     }
 
     case 'redeem_coupon': {
-      const raw = typeof action.code === 'string' ? action.code : '';
-      const normalized = raw.toLowerCase().trim().replace(/[\s\-_]/g, '');
-      if (!normalized) throw new Error('쿠폰 또는 치트키 코드를 입력해 주세요.');
+      const inputCode = typeof action.code === 'string' ? action.code.trim() : '';
+      if (!inputCode) throw new Error('쿠폰 번호를 입력해 주세요.');
 
-      let foundCoupon: { id: string; reward: number; name: string } | null = null;
-      for (const c of Object.values(COUPONS)) {
-        if (c.aliases.some(a => a.toLowerCase().replace(/[\s\-_]/g, '') === normalized)) {
-          foundCoupon = c;
-          break;
-        }
-      }
-
+      // 영문 대소문자 및 한글이 정확히 일치(Exact Match)해야 함
+      const foundCoupon = COUPON_LIST.find(c => c.code === inputCode);
       if (!foundCoupon) {
-        throw new Error('존재하지 않거나 유효하지 않은 코드입니다.');
+        throw new Error('존재하지 않거나 유효하지 않은 쿠폰 번호입니다.');
       }
 
-      const alreadyUsed = Array.isArray(p.usedCoupons) && p.usedCoupons.includes(foundCoupon.id);
+      const alreadyUsed = Array.isArray(p.usedCoupons) && p.usedCoupons.includes(foundCoupon.code);
       if (alreadyUsed) {
-        throw new Error('이미 사용된 쿠폰/치트키입니다. (계정당 1회만 사용 가능)');
+        throw new Error('이미 사용된 쿠폰입니다. (계정당 1회만 사용 가능)');
       }
 
       if (!Array.isArray(p.usedCoupons)) p.usedCoupons = [];
       p.balance += foundCoupon.reward;
-      p.usedCoupons.push(foundCoupon.id);
+      p.usedCoupons.push(foundCoupon.code);
       break;
     }
   }

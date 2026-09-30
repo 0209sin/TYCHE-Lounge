@@ -309,16 +309,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, [act, notify]);
 
-  const handleRedeemCoupon = useCallback(async (codeOverride?: string) => {
-    const code = (codeOverride ?? couponInput).trim();
+  const handleRedeemCoupon = useCallback(async () => {
+    const code = couponInput.trim();
     if (!code) return;
     setCouponBusy(true);
     setCouponMsg(null);
     try {
       await act({ type: 'redeem_coupon', code });
       setCouponInput('');
-      setCouponMsg({ type: 'success', text: '🎉 [치트키 발동] 50,000 코인이 정상 지급되었습니다!' });
-      notify('🎉 [치트키 발동: show me the money] 50,000 코인이 충전되었습니다!');
+      setCouponMsg({ type: 'success', text: `🎉 [${code}] 쿠폰이 적용되어 50,000 코인이 지급되었습니다!` });
+      notify(`🎉 [${code}] 쿠폰 등록 완료! 50,000 코인이 충전되었습니다!`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '쿠폰 등록에 실패했습니다.';
       setCouponMsg({ type: 'error', text: msg });
@@ -327,35 +327,6 @@ export default function App() {
       setCouponBusy(false);
     }
   }, [act, couponInput, notify]);
-
-  // Global Starcraft cheat code easter egg: Type 'show me the money' anywhere!
-  useEffect(() => {
-    let keyBuffer = '';
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-      }
-      if (e.key.length === 1 || e.key === ' ' || e.key === 'Enter') {
-        if (e.key === 'Enter') {
-          const norm = keyBuffer.toLowerCase().replace(/[\s\-_]/g, '');
-          if (norm.includes('showmethemoney') || norm.includes('쇼미더머니')) {
-            keyBuffer = '';
-            void handleRedeemCoupon('show me the money');
-          }
-          return;
-        }
-        keyBuffer = (keyBuffer + e.key).slice(-35);
-        const norm = keyBuffer.toLowerCase().replace(/[\s\-_]/g, '');
-        if (norm.includes('showmethemoney') || norm.includes('쇼미더머니')) {
-          keyBuffer = '';
-          void handleRedeemCoupon('show me the money');
-        }
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleRedeemCoupon]);
 
   const run = async (action: Action, message?: string) => {
     try {
@@ -1638,11 +1609,11 @@ export default function App() {
 
               <section className="settings-card coupon-settings-card">
                 <div className="section-heading">
-                  <h2>시크릿 쿠폰 & 치트키</h2>
+                  <h2>쿠폰 등록</h2>
                   <Gift size={21} />
                 </div>
                 <p>
-                  특별 프로모션 쿠폰이나 히든 치트키 코드를 입력해 보너스 코인을 수령하세요. (계정당 1회)
+                  티케 라운지의 프로모션 쿠폰 코드를 입력하세요. 영문 대소문자 및 한글이 정확히 일치해야 합니다. (계정당 1회)
                 </p>
                 <form
                   onSubmit={e => {
@@ -1653,7 +1624,7 @@ export default function App() {
                 >
                   <input
                     type="text"
-                    placeholder="쿠폰 또는 치트키 입력 (예: show me the money)"
+                    placeholder="쿠폰 코드 입력 (대소문자 구분)"
                     value={couponInput}
                     onChange={e => {
                       setCouponInput(e.target.value);
@@ -1667,7 +1638,7 @@ export default function App() {
                     className="primary-button coupon-submit-btn"
                     disabled={!available || couponBusy || !couponInput.trim()}
                   >
-                    {couponBusy ? '확인 중...' : '등록하기'}
+                    {couponBusy ? '확인 중...' : '쿠폰 등록'}
                   </button>
                 </form>
                 {couponMsg && (
@@ -1676,10 +1647,14 @@ export default function App() {
                     <span>{couponMsg.text}</span>
                   </div>
                 )}
-                {p.usedCoupons?.includes('COUPON_SHOW_ME_THE_MONEY') && (
-                  <div className="used-coupon-badge">
-                    <CheckCircle2 size={15} />
-                    <span>[show me the money] 50,000 코인 치트키 사용 완료</span>
+                {p.usedCoupons && p.usedCoupons.length > 0 && (
+                  <div className="used-coupon-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                    {p.usedCoupons.map(code => (
+                      <div key={code} className="used-coupon-badge">
+                        <CheckCircle2 size={15} />
+                        <span>[{code}] 쿠폰 사용 완료</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>

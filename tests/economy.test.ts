@@ -616,27 +616,36 @@ test('777 slot evaluation rules, payouts, and RTP balance work correctly', () =>
   assert.ok(simBustRate >= 0.46 && simBustRate <= 0.53, `Bust rate: ${simBustRate}`);
 });
 
-test('show me the money coupon grants 50,000 coins once and prevents reuse',()=>{
+test('dbsgh coupon grants 50,000 coins with strict case matching and resets on account reset',()=>{
   let p = initialProfile();
   assert.equal(p.balance, 10000);
   assert.deepEqual(p.usedCoupons, []);
 
-  // 1. Invalid code rejected
-  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'invalid_code' }));
+  // 1. Invalid or case-mismatched codes are rejected
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'DBSGH' }));
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'Dbsgh' }));
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'show me the money' }));
 
-  // 2. Redeem 'show me the money'
-  p = reduceProfile(p, { type: 'redeem_coupon', code: 'show me the money' });
+  // 2. Exact match 'dbsgh' grants 50,000 coins
+  p = reduceProfile(p, { type: 'redeem_coupon', code: 'dbsgh' });
   assert.equal(p.balance, 60000);
-  assert.ok(p.usedCoupons.includes('COUPON_SHOW_ME_THE_MONEY'));
+  assert.ok(p.usedCoupons.includes('dbsgh'));
 
-  // 3. Repeated redemption is rejected
-  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'showmethemoney' }));
-  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: '쇼미더머니' }));
+  // 3. Repeated redemption is strictly rejected (cannot be used again)
+  assert.throws(() => reduceProfile(p, { type: 'redeem_coupon', code: 'dbsgh' }));
 
   // 4. Persistence validation
   const saved = validateProfile(p, true);
   assert.equal(saved.balance, 60000);
-  assert.ok(saved.usedCoupons.includes('COUPON_SHOW_ME_THE_MONEY'));
+  assert.ok(saved.usedCoupons.includes('dbsgh'));
+
+  // 5. Account reset clears usedCoupons allowing coupon to be used again upon fresh start
+  let resetP = reduceProfile(p, { type: 'reset' });
+  assert.equal(resetP.balance, 10000);
+  assert.deepEqual(resetP.usedCoupons, []);
+  resetP = reduceProfile(resetP, { type: 'redeem_coupon', code: 'dbsgh' });
+  assert.equal(resetP.balance, 60000);
+  assert.ok(resetP.usedCoupons.includes('dbsgh'));
 });
 
 
